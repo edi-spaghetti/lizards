@@ -1,4 +1,4 @@
-package Main;
+package main;
 
 import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.map.Area;
@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.1,
+        version = 0.2,
         name = "Poacher"
 )
 
@@ -31,7 +31,8 @@ public class Main extends AbstractScript {
     private Lizard currentLizard;
 
     private int currentHunter = -1;
-    private Skills skills = new Skills(getClient());
+    private int initialHunterXP = 0;
+//        private Skills skills = new Skills(getClient());
 
     private GameObject nearestSettableTrap;
     private GameObject nearestCheckableTrap;
@@ -39,20 +40,22 @@ public class Main extends AbstractScript {
     private Item releaseableLizard;
 
     private List<GameObject> currentSetTraps = new ArrayList<>();
-    private List<Area> trapAreas = new ArrayList<>();;
+    private List<Area> trapAreas = new ArrayList<>();
 
     @Override
     public void onStart() {
         super.onStart();
 
         currentLizard = Lizard.GREEN;
-
+        //        initialHunterXP =  skills.getExperience(Skill.HUNTER);
     }
 
     @Override
     public int onLoop() {
 
-        // update state
+        log("looping");
+
+        //         update state
         updateState();
 
         // do stuff
@@ -69,8 +72,17 @@ public class Main extends AbstractScript {
         return Calculations.random(300, 400);
     }
 
+    @Override
+    public void onExit() {
+        super.onExit();
+        //        int finalHunterXP = skills.getExperience(Skill.HUNTER);
+
+        //        log("You gained " + (finalHunterXP - initialHunterXP) + " hunter xp - Congratz!");
+    }
+
     private void updateState() {
-        currentHunter = skills.getRealLevel(Skill.HUNTER);
+        currentHunter = 44;
+        // skills.getRealLevel(Skill.HUNTER);
 
         // iterate traps and check if they have collapsed
         currentSetTraps.removeIf(thisTrap -> !thisTrap.exists());
