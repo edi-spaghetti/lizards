@@ -3,7 +3,6 @@ package main;
 import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.methods.skills.Skill;
-import org.dreambot.api.methods.skills.Skills;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
@@ -20,7 +19,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.2,
+        version = 0.31,
         name = "Poacher"
 )
 
@@ -32,22 +31,20 @@ public class Main extends AbstractScript {
 
     private int currentHunter = -1;
     private int initialHunterXP = 0;
-//        private Skills skills = new Skills(getClient());
 
     private GameObject nearestSettableTrap;
     private GameObject nearestCheckableTrap;
     private GroundItem nearestItem;
     private Item releaseableLizard;
 
-    private List<GameObject> currentSetTraps = new ArrayList<>();
-    private List<Area> trapAreas = new ArrayList<>();
+    private List<Area> myTrapAreas = new ArrayList<>();
 
     @Override
     public void onStart() {
         super.onStart();
 
         currentLizard = Lizard.GREEN;
-        //        initialHunterXP =  skills.getExperience(Skill.HUNTER);
+        initialHunterXP =  getSkills().getExperience(Skill.HUNTER);
     }
 
     @Override
@@ -60,11 +57,11 @@ public class Main extends AbstractScript {
 
         // do stuff
         if (state == 0) {
-            setTrap();
-        } else if (state == 1) {
-            checkTrap();
-        } else if (state == 2) {
             takeItem();
+        } else if (state == 1) {
+            setTrap();
+        } else if (state == 2) {
+            checkTrap();
         } else if (state == 3) {
             releaseLizard();
         }
@@ -75,17 +72,12 @@ public class Main extends AbstractScript {
     @Override
     public void onExit() {
         super.onExit();
-        //        int finalHunterXP = skills.getExperience(Skill.HUNTER);
-
-        //        log("You gained " + (finalHunterXP - initialHunterXP) + " hunter xp - Congratz!");
+        int finalHunterXP = getSkills().getExperience(Skill.HUNTER);
+        log("You gained " + (finalHunterXP - initialHunterXP) + " hunter xp - Congratz!");
     }
 
     private void updateState() {
-        currentHunter = 44;
-        // skills.getRealLevel(Skill.HUNTER);
-
-        // iterate traps and check if they have collapsed
-        currentSetTraps.removeIf(thisTrap -> !thisTrap.exists());
+       currentHunter = getSkills().getRealLevel(Skill.HUNTER);
 
         // now check what's nearest based on new info from above
         nearestSettableTrap = getNearestSettableTrap();
@@ -94,11 +86,11 @@ public class Main extends AbstractScript {
         releaseableLizard = getReleaseableLizard();
 
         // now update main state so we know what action to perform next
-        if (nearestSettableTrap != null) {
+        if (nearestItem != null) {
             state = 0;
-        } else if (nearestCheckableTrap != null) {
+        } else if (nearestSettableTrap != null) {
             state = 1;
-        } else if (nearestItem != null) {
+        } else if (nearestCheckableTrap != null) {
             state = 2;
         } else if (releaseableLizard != null) {
             state = 3;
@@ -107,7 +99,6 @@ public class Main extends AbstractScript {
         }
 
         // log the updated state
-        log("currentSetTraps: " + currentSetTraps);
         log("current Hunter: " + currentHunter);
         log("nearestSettableL: " + nearestSettableTrap);
         log("nearestCheckable: " + nearestCheckableTrap);
@@ -131,59 +122,60 @@ public class Main extends AbstractScript {
     }
 
     private GameObject getNearestSettableTrap() {
-        return getGameObjects().closest(
+
+        GameObject trap = getGameObjects().closest(
                 f -> f.getName().equals(currentLizard.getTrapName())
                         && f.hasAction("Set-trap")
                 );
+
+        if (myTrapAreas.size() < maxTraps(currentHunter)) {
+            return trap;
+        } else {
+            return null;
+        }
+
     }
 
     private GameObject getNearestCheckableTrap() {
 
         GameObject nearest = null;
 
-        for (GameObject trap : currentSetTraps) {
+        List<GameObject> objs = getGameObjects().all(f -> f.getID() == currentLizard.checkableTrapID);
 
-            if (nearest == null
-                    && trap.hasAction("Check")
-            ) {
-                nearest = trap;
+        for (Area area : myTrapAreas) {
 
-            } else if (getLocalPlayer().distance(trap) < getLocalPlayer().distance(nearest)
-                    && trap.hasAction("Check")
-            ) {
-                nearest = trap;
+            for (GameObject obj : objs) {
+                if (nearest == null && area.contains(obj)) {
+                    nearest = obj;
+                } else if (getLocalPlayer().distance(obj) < getLocalPlayer().distance(nearest)) {
+                    nearest = obj;
+                }
             }
         }
 
         return nearest;
     }
 
-    private  GameObject getNearestNetTrap() {
-        return getGameObjects().closest(
-                f -> f.getName().equals("Net trap")
-                && f.hasAction("Dismantle")
-        );
-    }
-
     private GroundItem getNearestItem() {
 
-        GroundItem return_item = null;
+        GroundItem nearestItem = null;
 
-        for (Area trapArea: trapAreas) {
+        for (Area trapArea: myTrapAreas) {
 
             GroundItem item = getGroundItems().closest(
                     groundItem -> groundItem != null
-                            && (groundItem.getID() == 303 || groundItem.getID() == 954)
+                            && (groundItem.getID() == currentLizard.ropeID
+                                || groundItem.getID() == currentLizard.netID)
                             && trapArea.contains(groundItem)
             );
 
             if (item != null) {
-                return_item = item;
+                nearestItem = item;
             }
 
         }
 
-        return return_item;
+        return nearestItem;
     }
 
     private Item getReleaseableLizard() {
@@ -201,7 +193,7 @@ public class Main extends AbstractScript {
     private void setTrap() {
 
         // check if we have the level to set more traps
-        if (currentSetTraps.size() < maxTraps(currentHunter)) {
+        if (myTrapAreas.size() < maxTraps(currentHunter)) {
 
             if (nearestSettableTrap != null) {
 
@@ -210,17 +202,13 @@ public class Main extends AbstractScript {
 
                     // wait for trap to be set up
                     sleepUntil(
-                            () -> nearestSettableTrap.hasAction("Dismantle"),
-                            Calculations.random(4000, 6000)
+                            () -> !nearestSettableTrap.exists(),
+                            Calculations.random(1000, 2000)
                     );
 
-                    // add the trap to list so we can find it later
-                    GameObject netTrap = getNearestNetTrap();
-                    currentSetTraps.add(netTrap);
-
                     // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
-                    Area trapArea = netTrap.getSurroundingArea(1);
-                    trapAreas.add(trapArea);
+                    Area trapArea = nearestSettableTrap.getSurroundingArea(2);
+                    myTrapAreas.add(trapArea);
                 }
             }
         }
@@ -228,20 +216,17 @@ public class Main extends AbstractScript {
 
     private void checkTrap() {
 
-        if (nearestCheckableTrap != null) {
+        if (nearestCheckableTrap.interact("Check")) {
 
-            if (nearestCheckableTrap.interact("Check")) {
+            // wait for trap to be checked
+            sleepUntil(
+                    () -> !nearestCheckableTrap.exists(),
+                    Calculations.random(4000, 6000)
+            );
 
-                // wait for trap to be checked
-                sleepUntil(
-                        () -> !nearestCheckableTrap.exists(),
-                        Calculations.random(4000, 6000)
-                );
+            // remove the area from list
+            myTrapAreas.removeIf(a -> a.contains(getLocalPlayer()));
 
-                // remove the trap from list
-                currentSetTraps.remove(nearestCheckableTrap);
-
-            }
         }
     }
 
@@ -250,6 +235,25 @@ public class Main extends AbstractScript {
             nearestItem.interact("Take");
             sleepUntil(() -> !nearestItem.exists(), Calculations.random(4000, 6000));
         }
+
+        List<GroundItem> moreItems = getGroundItems().all(
+                groundItem -> groundItem != null
+                            && (groundItem.getID() == currentLizard.ropeID
+                                || groundItem.getID() == currentLizard.netID)
+                            && nearestItem.getTile() == groundItem.getTile()
+        );
+
+        // remove the area if we've already picked everything up
+        if (moreItems.size() == 0) {
+            myTrapAreas.removeIf(a -> a.contains(nearestItem));
+        }
+        //        else {
+//            getWalking().walk(nearestItem);
+//            sleepUntil(() -> !getLocalPlayer().isMoving()
+//                            || getLocalPlayer().distance(getClient().getDestination()) < 7,
+//                    Calculations.random(3600, 4800)
+//            );
+//        }
     }
 
     private void releaseLizard() {

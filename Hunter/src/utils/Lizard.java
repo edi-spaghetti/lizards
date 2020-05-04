@@ -14,6 +14,10 @@ public enum Lizard {
         setTrapName("Young tree");
     }
 
+    public int checkableTrapID = 9004;
+    public int ropeID = 303;
+    public int netID = 954;
+
     public String getLizardName() {
         return lizardName;
     }
@@ -29,4 +33,6 @@ public enum Lizard {
     public void setTrapName(String trapName) {
         this.trapName = trapName;
     }
+
+
 }
