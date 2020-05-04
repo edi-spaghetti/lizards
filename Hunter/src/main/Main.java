@@ -19,7 +19,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.31,
+        version = 0.32,
         name = "Poacher"
 )
 
@@ -104,6 +104,7 @@ public class Main extends AbstractScript {
         log("nearestCheckable: " + nearestCheckableTrap);
         log("nearestItem: " + nearestItem);
         log("releaseableLizard: " + releaseableLizard);
+        log("myAreas: " + myTrapAreas);
 
     }
 
@@ -197,12 +198,18 @@ public class Main extends AbstractScript {
 
             if (nearestSettableTrap != null) {
 
+                log("checking trap at: "
+                        + nearestSettableTrap.getTile().getGridX()
+                        + ", "
+                        + nearestSettableTrap.getTile().getGridY()
+                );
+
                 // set the trap
                 if (nearestSettableTrap.interact("Set-trap")) {
 
                     // wait for trap to be set up
                     sleepUntil(
-                            () -> !nearestSettableTrap.exists(),
+                            () -> !nearestSettableTrap.exists() && !getLocalPlayer().isMoving(),
                             Calculations.random(1000, 2000)
                     );
 
@@ -218,6 +225,12 @@ public class Main extends AbstractScript {
 
         if (nearestCheckableTrap.interact("Check")) {
 
+            log("checking trap at: "
+                    + nearestCheckableTrap.getTile().getGridX()
+                    + ", "
+                    + nearestCheckableTrap.getTile().getGridY()
+            );
+
             // wait for trap to be checked
             sleepUntil(
                     () -> !nearestCheckableTrap.exists(),
@@ -231,9 +244,20 @@ public class Main extends AbstractScript {
     }
 
     private void takeItem() {
-        if (getLocalPlayer().distance(nearestItem) < 5) {
+
+        log("checking trap at: "
+                + nearestItem.getTile().getGridX()
+                + ", "
+                + nearestItem.getTile().getGridY()
+        );
+
+        if (nearestItem.isOnScreen()) {
+
             nearestItem.interact("Take");
-            sleepUntil(() -> !nearestItem.exists(), Calculations.random(4000, 6000));
+
+            // sleep until item arrives in invent
+            int slots = getInventory().emptySlotCount();
+            sleepUntil(() -> getInventory().emptySlotCount() == slots - 1, Calculations.random(4000, 6000));
         }
 
         List<GroundItem> moreItems = getGroundItems().all(
@@ -243,17 +267,12 @@ public class Main extends AbstractScript {
                             && nearestItem.getTile() == groundItem.getTile()
         );
 
+        log("Found " + moreItems.size() + " more items");
+
         // remove the area if we've already picked everything up
         if (moreItems.size() == 0) {
             myTrapAreas.removeIf(a -> a.contains(nearestItem));
         }
-        //        else {
-//            getWalking().walk(nearestItem);
-//            sleepUntil(() -> !getLocalPlayer().isMoving()
-//                            || getLocalPlayer().distance(getClient().getDestination()) < 7,
-//                    Calculations.random(3600, 4800)
-//            );
-//        }
     }
 
     private void releaseLizard() {
