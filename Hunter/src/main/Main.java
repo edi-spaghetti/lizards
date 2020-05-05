@@ -3,6 +3,7 @@ package main;
 import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.methods.skills.Skill;
+import org.dreambot.api.methods.tabs.Tab;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
@@ -19,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.32,
+        version = 0.33,
         name = "Poacher"
 )
 
@@ -214,7 +215,7 @@ public class Main extends AbstractScript {
                     );
 
                     // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
-                    Area trapArea = nearestSettableTrap.getSurroundingArea(2);
+                    Area trapArea = nearestSettableTrap.getSurroundingArea(1);
                     myTrapAreas.add(trapArea);
                 }
             }
@@ -237,10 +238,12 @@ public class Main extends AbstractScript {
                     Calculations.random(4000, 6000)
             );
 
-            // remove the area from list
-            myTrapAreas.removeIf(a -> a.contains(getLocalPlayer()));
+            log("nearest checkable traps exists: " + nearestCheckableTrap.exists());
 
+            // remove the area from list
+            myTrapAreas.removeIf(a -> a.contains(nearestCheckableTrap));
         }
+
     }
 
     private void takeItem() {
@@ -257,7 +260,10 @@ public class Main extends AbstractScript {
 
             // sleep until item arrives in invent
             int slots = getInventory().emptySlotCount();
-            sleepUntil(() -> getInventory().emptySlotCount() == slots - 1, Calculations.random(4000, 6000));
+            sleepUntil(
+                    () -> getInventory().emptySlotCount() == slots - 1,
+                    Calculations.random(4000, 6000)
+            );
         }
 
         List<GroundItem> moreItems = getGroundItems().all(
@@ -277,9 +283,15 @@ public class Main extends AbstractScript {
 
     private void releaseLizard() {
 
-        if (releaseableLizard != null) {
-            releaseableLizard.interact("Release");
+        if (!getTabs().isOpen(Tab.INVENTORY)) {
+            getTabs().openWithMouse(Tab.INVENTORY);
+        } else {
+            int slots = getInventory().emptySlotCount();
+            if (releaseableLizard.interact("Release")) {
+                sleepUntil(() -> getInventory().getEmptySlots() == (slots + 1), Calculations.random(400, 600));
+            }
         }
+
     }
 
 }
