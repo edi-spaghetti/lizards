@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.44,
+        version = 0.451,
         name = "Poacher"
 )
 
@@ -52,7 +52,7 @@ public class Main extends AbstractScript {
     @Override
     public int onLoop() {
 
-        log("looping");
+        // log("looping");
 
         //         update state
         updateState();
@@ -62,16 +62,16 @@ public class Main extends AbstractScript {
             log("taking items");
             takeItems();
         } else if (state == 1) {
-            log("setting trap");
+            // log("setting trap");
             setTrap();
         } else if (state == 2) {
-            log("checking trap");
+            // log("checking trap");
             checkTrap();
         } else if (state == 3) {
-            log("releasing lizard");
+            // log("releasing lizard");
             releaseLizard();
         } else if (state == -1) {
-            log("waiting");
+            // log("waiting");
         }
 
         return Calculations.random(300, 400);
@@ -202,7 +202,7 @@ public class Main extends AbstractScript {
             );
 
             if (item != null) {
-                log("actual distance = " + item.distance(tile));
+                // log("actual distance = " + item.distance(tile));
                 nearestItem = item;
             }
 
@@ -227,7 +227,7 @@ public class Main extends AbstractScript {
 
         int x = nearestSettableTrap.getX();
         int y = nearestSettableTrap.getY();
-        log("setting trap at: " + x + "," + y);
+        // log("setting trap at: " + x + "," + y);
 
         // set the trap
         if (nearestSettableTrap.interact("Set-trap")) {
@@ -238,7 +238,7 @@ public class Main extends AbstractScript {
 
             // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
             Tile tile = nearestSettableTrap.getTile();
-            log("Adding trap tile: " + tile.getX() + "," + tile.getY());
+            // log("Adding trap tile: " + tile.getX() + "," + tile.getY());
             myTrapTiles.add(tile);
         }
     }
@@ -303,6 +303,7 @@ public class Main extends AbstractScript {
 
         while (!allTaken) {
             if (items.size() > 0) {
+                allTaken = allItemsTaken(items);
                 GroundItem nextItem = items.get(items.size() - 1);
 
                 // calculate how long we need to wait before trying to pick up next item
@@ -314,8 +315,11 @@ public class Main extends AbstractScript {
                     sleepUntil(() -> !nextItem.exists(), Calculations.random(
                             sleepMinimum, sleepMinimum + 600
                     ));
-                    items.remove(nextItem);
-                    allTaken = allItemsTaken(items);
+                    if (!nextItem.exists()) {
+                        items.remove(nextItem);
+                    } else {
+                        log(String.format("%s still exists!", nextItem.toString()));
+                    }
                 } else {
                     log("TODO: walker or move cam");
                 }
@@ -326,7 +330,7 @@ public class Main extends AbstractScript {
         }
 
         int beforeSize = myTrapTiles.size();
-        myTrapTiles.removeIf(t -> (t.getX() == x && t.getY() == y));
+        myTrapTiles.removeIf(t -> t.distance(nearestItem.getTile()) == 1.0);
         log(String.format("Removed %d tiles", beforeSize - myTrapTiles.size()));
 
     }
