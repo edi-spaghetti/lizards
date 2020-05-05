@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.43,
+        version = 0.44,
         name = "Poacher"
 )
 
@@ -39,6 +39,7 @@ public class Main extends AbstractScript {
     private Item releaseableLizard;
 
     private List<Tile> myTrapTiles = new ArrayList<>();
+    private int msPerTile = 0;
 
     @Override
     public void onStart() {
@@ -91,6 +92,12 @@ public class Main extends AbstractScript {
         nearestCheckableTrap = getNearestCheckableTrap();
         nearestItem = getNearestItem();
         releaseableLizard = getReleaseableLizard();
+
+        if (getWalking().isRunEnabled()) {
+            msPerTile = 300;
+        } else {
+            msPerTile = 600;
+        }
 
         // now update main state so we know what action to perform next
         if (nearestItem != null) {
@@ -226,6 +233,7 @@ public class Main extends AbstractScript {
         if (nearestSettableTrap.interact("Set-trap")) {
 
             // wait for trap to be set up
+            // TODO: calculate this more accurately
             sleep(Calculations.random(2400, 3000));
 
             // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
@@ -247,6 +255,7 @@ public class Main extends AbstractScript {
         if (nearestCheckableTrap.interact("Check")) {
 
             // wait for trap to be checked
+            // TODO: calculate this more accurately
             sleep(Calculations.random(2400, 3000));
 
             // log("nearest checkable traps exists: " + nearestCheckableTrap.exists());
@@ -295,10 +304,15 @@ public class Main extends AbstractScript {
         while (!allTaken) {
             if (items.size() > 0) {
                 GroundItem nextItem = items.get(items.size() - 1);
-                int sleepMinimum = (int) getLocalPlayer().distance(nextItem) * 300 + 600;
+
+                // calculate how long we need to wait before trying to pick up next item
+                int numTiles = getWalking().getAStarPathFinder().calculate(
+                        getLocalPlayer().getTile(), nextItem.getTile()).size();
+                int sleepMinimum = numTiles * msPerTile + 1200;
+
                 if (nextItem.interact("Take")) {
                     sleepUntil(() -> !nextItem.exists(), Calculations.random(
-                            sleepMinimum, sleepMinimum + 200
+                            sleepMinimum, sleepMinimum + 600
                     ));
                     items.remove(nextItem);
                     allTaken = allItemsTaken(items);
@@ -306,11 +320,14 @@ public class Main extends AbstractScript {
                     log("TODO: walker or move cam");
                 }
             } else {
+                log("all items taken!");
                 allTaken = true;
             }
         }
 
-        log("all items taken!");
+        int beforeSize = myTrapTiles.size();
+        myTrapTiles.removeIf(t -> (t.getX() == x && t.getY() == y));
+        log(String.format("Removed %d tiles", beforeSize - myTrapTiles.size()));
 
     }
 
