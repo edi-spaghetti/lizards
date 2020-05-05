@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.33,
+        version = 0.34,
         name = "Poacher"
 )
 
@@ -58,12 +58,16 @@ public class Main extends AbstractScript {
 
         // do stuff
         if (state == 0) {
+            log("taking item");
             takeItem();
         } else if (state == 1) {
+            log("setting trap");
             setTrap();
         } else if (state == 2) {
+            log("checking trap");
             checkTrap();
         } else if (state == 3) {
+            log("releasing lizard");
             releaseLizard();
         }
 
@@ -209,10 +213,7 @@ public class Main extends AbstractScript {
                 if (nearestSettableTrap.interact("Set-trap")) {
 
                     // wait for trap to be set up
-                    sleepUntil(
-                            () -> !nearestSettableTrap.exists() && !getLocalPlayer().isMoving(),
-                            Calculations.random(1000, 2000)
-                    );
+                    sleep(Calculations.random(2400, 3000));
 
                     // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
                     Area trapArea = nearestSettableTrap.getSurroundingArea(1);
@@ -233,10 +234,7 @@ public class Main extends AbstractScript {
             );
 
             // wait for trap to be checked
-            sleepUntil(
-                    () -> !nearestCheckableTrap.exists(),
-                    Calculations.random(4000, 6000)
-            );
+            sleep(Calculations.random(2400, 3000));
 
             log("nearest checkable traps exists: " + nearestCheckableTrap.exists());
 
@@ -286,9 +284,8 @@ public class Main extends AbstractScript {
         if (!getTabs().isOpen(Tab.INVENTORY)) {
             getTabs().openWithMouse(Tab.INVENTORY);
         } else {
-            int slots = getInventory().emptySlotCount();
             if (releaseableLizard.interact("Release")) {
-                sleepUntil(() -> getInventory().getEmptySlots() == (slots + 1), Calculations.random(400, 600));
+                log("Released lizard in slot " + releaseableLizard.getSlot());
             }
         }
 
