@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.42,
+        version = 0.43,
         name = "Poacher"
 )
 
@@ -80,7 +80,7 @@ public class Main extends AbstractScript {
     public void onExit() {
         super.onExit();
         int finalHunterXP = getSkills().getExperience(Skill.HUNTER);
-        // log("You gained " + (finalHunterXP - initialHunterXP) + " hunter xp - Congratz!");
+        log("You gained " + (finalHunterXP - initialHunterXP) + " hunter xp - Congratz!");
     }
 
     private void updateState() {
@@ -295,7 +295,11 @@ public class Main extends AbstractScript {
         while (!allTaken) {
             if (items.size() > 0) {
                 GroundItem nextItem = items.get(items.size() - 1);
+                int sleepMinimum = (int) getLocalPlayer().distance(nextItem) * 300 + 600;
                 if (nextItem.interact("Take")) {
+                    sleepUntil(() -> !nextItem.exists(), Calculations.random(
+                            sleepMinimum, sleepMinimum + 200
+                    ));
                     items.remove(nextItem);
                     allTaken = allItemsTaken(items);
                 } else {
@@ -305,6 +309,8 @@ public class Main extends AbstractScript {
                 allTaken = true;
             }
         }
+
+        log("all items taken!");
 
     }
 
