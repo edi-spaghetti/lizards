@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.4,
+        version = 0.42,
         name = "Poacher"
 )
 
@@ -58,8 +58,8 @@ public class Main extends AbstractScript {
 
         // do stuff
         if (state == 0) {
-            log("taking item");
-            takeItem();
+            log("taking items");
+            takeItems();
         } else if (state == 1) {
             log("setting trap");
             setTrap();
@@ -69,6 +69,8 @@ public class Main extends AbstractScript {
         } else if (state == 3) {
             log("releasing lizard");
             releaseLizard();
+        } else if (state == -1) {
+            log("waiting");
         }
 
         return Calculations.random(300, 400);
@@ -78,7 +80,7 @@ public class Main extends AbstractScript {
     public void onExit() {
         super.onExit();
         int finalHunterXP = getSkills().getExperience(Skill.HUNTER);
-        log("You gained " + (finalHunterXP - initialHunterXP) + " hunter xp - Congratz!");
+        // log("You gained " + (finalHunterXP - initialHunterXP) + " hunter xp - Congratz!");
     }
 
     private void updateState() {
@@ -104,12 +106,12 @@ public class Main extends AbstractScript {
         }
 
         // log the updated state
-        log("current Hunter: " + currentHunter);
-        log("nearestSettableL: " + nearestSettableTrap);
-        log("nearestCheckable: " + nearestCheckableTrap);
-        log("nearestItem: " + nearestItem);
-        log("releaseableLizard: " + releaseableLizard);
-        log("myTiles: " + getTrapTilesLogString());
+        // log("current Hunter: " + currentHunter);
+        // log("nearestSettableL: " + nearestSettableTrap);
+        // log("nearestCheckable: " + nearestCheckableTrap);
+        // log("nearestItem: " + nearestItem);
+        // log("releaseableLizard: " + releaseableLizard);
+        // log("myTiles: " + getTrapTilesLogString());
 
     }
 
@@ -117,8 +119,8 @@ public class Main extends AbstractScript {
         StringBuilder myTrapTilesLog = new StringBuilder();
         for (Tile tile : myTrapTiles) {
 
-            int x = tile.getGridX();
-            int y = tile.getGridY();
+            int x = tile.getX();
+            int y = tile.getY();
 
             if (!myTrapTilesLog.toString().equals("")) {
                 myTrapTilesLog.append(" ");
@@ -168,7 +170,7 @@ public class Main extends AbstractScript {
         for (Tile tile : myTrapTiles) {
 
             for (GameObject obj : objs) {
-                if (nearest == null && obj.getTile() == tile.getTile()) {
+                if (nearest == null && obj.distance(tile) < 2) {
                     nearest = obj;
                 } else if (getLocalPlayer().distance(obj) < getLocalPlayer().distance(nearest)) {
                     nearest = obj;
@@ -189,10 +191,11 @@ public class Main extends AbstractScript {
                     groundItem -> groundItem != null
                             && (groundItem.getID() == currentLizard.ropeID
                                 || groundItem.getID() == currentLizard.netID)
-                            && groundItem.getTile() == tile.getTile()
+                            && groundItem.distance(tile) < 2
             );
 
             if (item != null) {
+                log("actual distance = " + item.distance(tile));
                 nearestItem = item;
             }
 
@@ -215,48 +218,42 @@ public class Main extends AbstractScript {
 
     private void setTrap() {
 
-        // check if we have the level to set more traps
-        if (myTrapTiles.size() < maxTraps(currentHunter)) {
+        int x = nearestSettableTrap.getX();
+        int y = nearestSettableTrap.getY();
+        log("setting trap at: " + x + "," + y);
 
-            if (nearestSettableTrap != null) {
+        // set the trap
+        if (nearestSettableTrap.interact("Set-trap")) {
 
-                log("checking trap at: "
-                        + nearestSettableTrap.getTile().getGridX()
-                        + ", "
-                        + nearestSettableTrap.getTile().getGridY()
-                );
+            // wait for trap to be set up
+            sleep(Calculations.random(2400, 3000));
 
-                // set the trap
-                if (nearestSettableTrap.interact("Set-trap")) {
-
-                    // wait for trap to be set up
-                    sleep(Calculations.random(2400, 3000));
-
-                    // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
-                    Tile tile = nearestSettableTrap.getTile().translate(0, 1);
-                    log("Adding trap tile: " + tile.getGridX() + "," + tile.getGridY());
-                    myTrapTiles.add(tile);
-                }
-            }
+            // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
+            Tile tile = nearestSettableTrap.getTile();
+            log("Adding trap tile: " + tile.getX() + "," + tile.getY());
+            myTrapTiles.add(tile);
         }
     }
 
     private void checkTrap() {
 
-        int x = nearestItem.getGridX();
-        int y = nearestItem.getGridY();
-        log("checking trap at: " + x + "," + y);
+        int x = nearestCheckableTrap.getX();
+        int y = nearestCheckableTrap.getY();
+        // log("checking trap at: " + x + "," + y);
+
+        // cache a copy of this before we remove the object
+        Tile tile = nearestCheckableTrap.getTile();
 
         if (nearestCheckableTrap.interact("Check")) {
 
             // wait for trap to be checked
             sleep(Calculations.random(2400, 3000));
 
-            log("nearest checkable traps exists: " + nearestCheckableTrap.exists());
+            // log("nearest checkable traps exists: " + nearestCheckableTrap.exists());
 
             int beforeSize = myTrapTiles.size();
             // remove the area from list
-            myTrapTiles.removeIf(a -> a.getTile() == nearestCheckableTrap.getTile());
+            myTrapTiles.removeIf(a -> (a.getX() == tile.getX() && a.getY() == tile.getY()));
             log("removed " + (beforeSize - myTrapTiles.size() + " tiles"));
         }
     }
@@ -268,25 +265,32 @@ public class Main extends AbstractScript {
         for (GroundItem item : items) {
             if (item.exists()) {
                 allTaken = false;
+            } else {
+                log(item + "does not exist");
             }
         }
 
         return allTaken;
     }
 
-    private void takeItem() {
+    private boolean itemsOnSameTile(GroundItem a, GroundItem b) {
+        return a.getTile().getX() == b.getTile().getX() && a.getTile().getY() == b.getTile().getY();
+    }
 
-        int x = nearestItem.getGridX();
-        int y = nearestItem.getGridY();
-        log("taking items at: " + x + "," + y);
+    private void takeItems() {
+
+        int x = nearestItem.getX();
+        int y = nearestItem.getY();
+        // log("taking items at: " + x + "," + y);
 
         List<GroundItem> items = getGroundItems().all(
                 groundItem -> groundItem != null
                         && (groundItem.getID() == currentLizard.netID || groundItem.getID() == currentLizard.ropeID)
-                        && groundItem.getTile() == nearestItem.getTile()
+                        && itemsOnSameTile(groundItem, nearestItem)
         );
 
         boolean allTaken = allItemsTaken(items);
+        log("allTaken is " + allTaken);
 
         while (!allTaken) {
             if (items.size() > 0) {
