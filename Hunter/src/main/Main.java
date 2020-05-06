@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 1.002,
+        version = 1.003,
         name = "Poacher"
 )
 
@@ -81,7 +81,7 @@ public class Main extends AbstractScript {
     public void onExit() {
         super.onExit();
         int finalHunterXP = getSkills().getExperience(Skill.HUNTER);
-        log("You gained " + (finalHunterXP - initialHunterXP) + " hunter xp - Congratz!");
+        log("You poached " + (finalHunterXP - initialHunterXP) + " xp - Congratz!");
     }
 
     private void updateState() {
@@ -108,7 +108,7 @@ public class Main extends AbstractScript {
         // next override default priority if we're right next to a settable trap
         // most likely because we just checked it
         if (nearestSettableTrap != null) {
-            if (getLocalPlayer().distance(nearestSettableTrap) == 1.0 && nearestItem != null) {
+            if (getLocalPlayer().distance(nearestSettableTrap) < 2.1 && nearestItem != null) {
 
                 if (nearestSettableTrap.distance(nearestItem) < 1.1) {
                     log("picking up collapsed trap");
@@ -142,7 +142,7 @@ public class Main extends AbstractScript {
         // log("nearestCheckable: " + nearestCheckableTrap);
         // log("nearestItem: " + nearestItem);
         // log("releaseableLizard: " + releaseableLizard);
-        // log("myTiles: " + getTrapTilesLogString());
+        log("myTiles: " + getTrapTilesLogString());
 
     }
 
@@ -154,7 +154,7 @@ public class Main extends AbstractScript {
             int y = tile.getY();
 
             if (!myTrapTilesLog.toString().equals("")) {
-                myTrapTilesLog.append(" ");
+                myTrapTilesLog.append(" - ");
             }
 
             myTrapTilesLog.append(x).append(",").append(y);
@@ -259,10 +259,12 @@ public class Main extends AbstractScript {
             // wait for trap to be set up
             int numTiles = getWalking().getAStarPathFinder().calculate(
                     getLocalPlayer().getTile(), nearestSettableTrap.getTile()).size();
-            int setTrapTime = 1800;
+            int setTrapTime = 1850;
             int sleepMinimum = (numTiles * msPerTile) + setTrapTime;
+            int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
+            log(String.format("Sleeping %d ms for trap to set", sleepTime));
 
-            sleep(Calculations.random(sleepMinimum, sleepMinimum + 200));
+            sleep(sleepTime);
 
             // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
             Tile tile = nearestSettableTrap.getTile();
@@ -283,12 +285,16 @@ public class Main extends AbstractScript {
         if (nearestCheckableTrap.interact("Check")) {
 
             // wait for trap to be checked
+            // TODO: this should be a separate function
             int numTiles = getWalking().getAStarPathFinder().calculate(
                     getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
-            int setTrapTime = 600;
+            int setTrapTime = 650;
             int sleepMinimum = (numTiles * msPerTile) + setTrapTime;
 
-            sleep(Calculations.random(sleepMinimum, sleepMinimum + 200));
+            int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
+            log(String.format("Sleeping %d ms for trap to check", sleepTime));
+
+            sleep(sleepTime);
 
             // log("nearest checkable traps exists: " + nearestCheckableTrap.exists());
 
@@ -341,7 +347,8 @@ public class Main extends AbstractScript {
                 // calculate how long we need to wait before trying to pick up next item
                 int numTiles = getWalking().getAStarPathFinder().calculate(
                         getLocalPlayer().getTile(), nextItem.getTile()).size();
-                int sleepMinimum = numTiles * msPerTile + 1200;
+                int actionTime = 1200;
+                int sleepMinimum = (numTiles * msPerTile) + actionTime;
 
                 if (nextItem.interact("Take")) {
                     sleepUntil(() -> !nextItem.exists(), Calculations.random(
