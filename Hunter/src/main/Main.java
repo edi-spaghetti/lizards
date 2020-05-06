@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 1.001,
+        version = 1.002,
         name = "Poacher"
 )
 
@@ -98,6 +98,30 @@ public class Main extends AbstractScript {
         } else {
             msPerTile = 600;
         }
+
+        // first priority is ensuring we have enough space
+        if (getInventory().emptySlotCount() < 3) {
+            state = 3;
+            return;
+        }
+
+        // next override default priority if we're right next to a settable trap
+        // most likely because we just checked it
+        if (nearestSettableTrap != null) {
+            if (getLocalPlayer().distance(nearestSettableTrap) == 1.0 && nearestItem != null) {
+
+                if (nearestSettableTrap.distance(nearestItem) < 1.1) {
+                    log("picking up collapsed trap");
+                    state = 0;
+                    return;
+                }
+
+                log("setting this trap first, get those items in sec ");
+                state = 1;
+                return;
+            }
+        }
+
 
         // now update main state so we know what action to perform next
         if (nearestItem != null) {
