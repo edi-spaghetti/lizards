@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 1.003,
+        version = 1.004,
         name = "Poacher"
 )
 
@@ -259,10 +259,16 @@ public class Main extends AbstractScript {
             // wait for trap to be set up
             int numTiles = getWalking().getAStarPathFinder().calculate(
                     getLocalPlayer().getTile(), nearestSettableTrap.getTile()).size();
-            int setTrapTime = 1850;
-            int sleepMinimum = (numTiles * msPerTile) + setTrapTime;
+            int setTrapTime = 1800;
+            int buffer = 50;
+            int sleepMinimum = (numTiles * msPerTile) + setTrapTime + buffer;
             int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
-            log(String.format("Sleeping %d ms for trap to set", sleepTime));
+            log(String.format(
+                    "Player at %d, %d - Sleeping %d ms for trap to set at %d, %d",
+                    getLocalPlayer().getX(), getLocalPlayer().getY(),
+                    sleepTime,
+                    x, y
+            ));
 
             sleep(sleepTime);
 
@@ -288,11 +294,17 @@ public class Main extends AbstractScript {
             // TODO: this should be a separate function
             int numTiles = getWalking().getAStarPathFinder().calculate(
                     getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
-            int setTrapTime = 650;
-            int sleepMinimum = (numTiles * msPerTile) + setTrapTime;
+            int setTrapTime = 600;
+            int buffer = 50;
+            int sleepMinimum = (numTiles * msPerTile) + setTrapTime + buffer;
 
             int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
-            log(String.format("Sleeping %d ms for trap to check", sleepTime));
+            log(String.format(
+                    "Player at %d, %d - Sleeping %d ms for trap to check at %d, %d",
+                    getLocalPlayer().getX(), getLocalPlayer().getY(),
+                    sleepTime,
+                    x, y
+            ));
 
             sleep(sleepTime);
 
@@ -305,23 +317,16 @@ public class Main extends AbstractScript {
         }
     }
 
-    private boolean allItemsTaken(List<GroundItem> items) {
-
-        boolean allTaken = true;
-
-        for (GroundItem item : items) {
-            if (item.exists()) {
-                allTaken = false;
-            } else {
-                log(item + "does not exist");
-            }
-        }
-
-        return allTaken;
-    }
-
     private boolean itemsOnSameTile(GroundItem a, GroundItem b) {
         return a.getTile().getX() == b.getTile().getX() && a.getTile().getY() == b.getTile().getY();
+    }
+
+    private List<GroundItem> getNearestItemPile() {
+        return getGroundItems().all(
+                groundItem -> groundItem != null
+                        && (groundItem.getID() == currentLizard.netID || groundItem.getID() == currentLizard.ropeID)
+                        && itemsOnSameTile(groundItem, nearestItem)
+        );
     }
 
     private void takeItems() {
@@ -330,41 +335,42 @@ public class Main extends AbstractScript {
         int y = nearestItem.getY();
         // log("taking items at: " + x + "," + y);
 
-        List<GroundItem> items = getGroundItems().all(
-                groundItem -> groundItem != null
-                        && (groundItem.getID() == currentLizard.netID || groundItem.getID() == currentLizard.ropeID)
-                        && itemsOnSameTile(groundItem, nearestItem)
-        );
+        List<GroundItem> items = getNearestItemPile();
 
-        boolean allTaken = allItemsTaken(items);
-        log("allTaken is " + allTaken);
+        while (items.size() > 0) {
+            items = getNearestItemPile();
+            GroundItem nextItem = items.get(items.size() - 1);
 
-        while (!allTaken) {
-            if (items.size() > 0) {
-                allTaken = allItemsTaken(items);
-                GroundItem nextItem = items.get(items.size() - 1);
+            // calculate how long we need to wait before trying to pick up next item
+            int numTiles = getWalking().getAStarPathFinder().calculate(
+                    getLocalPlayer().getTile(), nextItem.getTile()).size();
+            int actionTime = 1200;
+            int buffer = 50;
+            int sleepMinimum = (numTiles * msPerTile) + actionTime + buffer;
+            int sleepTime = Calculations.random(
+                    sleepMinimum, sleepMinimum + 600
+            );
 
-                // calculate how long we need to wait before trying to pick up next item
-                int numTiles = getWalking().getAStarPathFinder().calculate(
-                        getLocalPlayer().getTile(), nextItem.getTile()).size();
-                int actionTime = 1200;
-                int sleepMinimum = (numTiles * msPerTile) + actionTime;
 
-                if (nextItem.interact("Take")) {
-                    sleepUntil(() -> !nextItem.exists(), Calculations.random(
-                            sleepMinimum, sleepMinimum + 600
-                    ));
-                    if (!nextItem.exists()) {
-                        items.remove(nextItem);
-                    } else {
-                        log(String.format("%s still exists!", nextItem.toString()));
-                    }
+            if (nextItem.interact("Take")) {
+
+                log(String.format(
+                        "Player at %d, %d - Sleeping %d ms to take %s at %d, %d",
+                        getLocalPlayer().getX(), getLocalPlayer().getY(),
+                        sleepTime,
+                        nextItem.toString(),
+                        x, y
+                ));
+                sleep(sleepTime);
+
+                if (!nextItem.exists()) {
+                    items.remove(nextItem);
                 } else {
-                    log("TODO: walker or move cam");
+                    log(String.format("%s still exists!", nextItem.toString()));
                 }
+
             } else {
-                log("all items taken!");
-                allTaken = true;
+                log("TODO: walker or move cam");
             }
         }
 
