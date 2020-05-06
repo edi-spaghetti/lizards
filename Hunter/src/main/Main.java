@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 0.451,
+        version = 1.001,
         name = "Poacher"
 )
 
@@ -233,8 +233,12 @@ public class Main extends AbstractScript {
         if (nearestSettableTrap.interact("Set-trap")) {
 
             // wait for trap to be set up
-            // TODO: calculate this more accurately
-            sleep(Calculations.random(2400, 3000));
+            int numTiles = getWalking().getAStarPathFinder().calculate(
+                    getLocalPlayer().getTile(), nearestSettableTrap.getTile()).size();
+            int setTrapTime = 1800;
+            int sleepMinimum = (numTiles * msPerTile) + setTrapTime;
+
+            sleep(Calculations.random(sleepMinimum, sleepMinimum + 200));
 
             // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
             Tile tile = nearestSettableTrap.getTile();
@@ -255,8 +259,12 @@ public class Main extends AbstractScript {
         if (nearestCheckableTrap.interact("Check")) {
 
             // wait for trap to be checked
-            // TODO: calculate this more accurately
-            sleep(Calculations.random(2400, 3000));
+            int numTiles = getWalking().getAStarPathFinder().calculate(
+                    getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
+            int setTrapTime = 600;
+            int sleepMinimum = (numTiles * msPerTile) + setTrapTime;
+
+            sleep(Calculations.random(sleepMinimum, sleepMinimum + 200));
 
             // log("nearest checkable traps exists: " + nearestCheckableTrap.exists());
 
