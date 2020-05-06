@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 1.004,
+        version = 1.005,
         name = "Poacher"
 )
 
@@ -344,15 +344,20 @@ public class Main extends AbstractScript {
             // calculate how long we need to wait before trying to pick up next item
             int numTiles = getWalking().getAStarPathFinder().calculate(
                     getLocalPlayer().getTile(), nextItem.getTile()).size();
-            int actionTime = 1200;
+            int actionTime = 600;
             int buffer = 50;
             int sleepMinimum = (numTiles * msPerTile) + actionTime + buffer;
             int sleepTime = Calculations.random(
-                    sleepMinimum, sleepMinimum + 600
+                    sleepMinimum, sleepMinimum + 200
             );
 
-
+            long start = System.currentTimeMillis();
             if (nextItem.interact("Take")) {
+                long end = System.currentTimeMillis();
+                int duration = (int) (end - start);
+                log(String.format("Take interaction took %d ms", end - start));
+
+                sleepTime = sleepTime - duration;
 
                 log(String.format(
                         "Player at %d, %d - Sleeping %d ms to take %s at %d, %d",
