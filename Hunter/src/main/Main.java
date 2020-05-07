@@ -20,7 +20,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 1.005,
+        version = 1.006,
         name = "Poacher"
 )
 
@@ -59,7 +59,7 @@ public class Main extends AbstractScript {
 
         // do stuff
         if (state == 0) {
-            log("taking items");
+            // log("taking items");
             takeItems();
         } else if (state == 1) {
             // log("setting trap");
@@ -111,12 +111,12 @@ public class Main extends AbstractScript {
             if (getLocalPlayer().distance(nearestSettableTrap) < 2.1 && nearestItem != null) {
 
                 if (nearestSettableTrap.distance(nearestItem) < 1.1) {
-                    log("picking up collapsed trap");
+                    // log("picking up collapsed trap");
                     state = 0;
                     return;
                 }
 
-                log("setting this trap first, get those items in sec ");
+                // log("setting this trap first, get those items in sec ");
                 state = 1;
                 return;
             }
@@ -335,11 +335,17 @@ public class Main extends AbstractScript {
         int y = nearestItem.getY();
         // log("taking items at: " + x + "," + y);
 
-        List<GroundItem> items = getNearestItemPile();
+        List<GroundItem> items;
 
-        while (items.size() > 0) {
+        while (true) {
+
             items = getNearestItemPile();
-            GroundItem nextItem = items.get(items.size() - 1);
+
+            if (items.isEmpty()) {
+                log("all items taken");
+                break;
+            }
+            GroundItem nextItem = items.get(items.size() -1);
 
             // calculate how long we need to wait before trying to pick up next item
             int numTiles = getWalking().getAStarPathFinder().calculate(
@@ -355,7 +361,7 @@ public class Main extends AbstractScript {
             if (nextItem.interact("Take")) {
                 long end = System.currentTimeMillis();
                 int duration = (int) (end - start);
-                log(String.format("Take interaction took %d ms", end - start));
+                // log(String.format("Take interaction took %d ms", end - start));
 
                 sleepTime = sleepTime - duration;
 
@@ -385,13 +391,25 @@ public class Main extends AbstractScript {
 
     }
 
+    private List<Item> getInventoryLizards() {
+        List<Item> inventory = getInventory().getCollection();
+        List<Item> lizards = new ArrayList<Item>();
+        for (Item item : inventory) {
+            if (item.getName().equals(currentLizard.getLizardName())) {
+                lizards.add(item);
+            }
+        }
+
+        return lizards;
+    }
+
     private void releaseLizard() {
 
         if (!getTabs().isOpen(Tab.INVENTORY)) {
             getTabs().openWithMouse(Tab.INVENTORY);
         } else {
             if (releaseableLizard.interact("Release")) {
-                log("Released lizard in slot " + releaseableLizard.getSlot());
+                // log("Released lizard in slot " + releaseableLizard.getSlot());
             }
         }
 
