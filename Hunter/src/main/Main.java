@@ -7,6 +7,7 @@ import org.dreambot.api.methods.tabs.Tab;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
+import org.dreambot.api.wrappers.interactive.Entity;
 import org.dreambot.api.wrappers.interactive.GameObject;
 import org.dreambot.api.wrappers.items.GroundItem;
 import org.dreambot.api.wrappers.items.Item;
@@ -20,7 +21,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 1.006,
+        version = 1.007,
         name = "Poacher"
 )
 
@@ -39,7 +40,6 @@ public class Main extends AbstractScript {
     private Item releaseableLizard;
 
     private List<Tile> myTrapTiles = new ArrayList<>();
-    private int msPerTile = 0;
 
     @Override
     public void onStart() {
@@ -93,12 +93,6 @@ public class Main extends AbstractScript {
         nearestItem = getNearestItem();
         releaseableLizard = getReleaseableLizard();
 
-        if (getWalking().isRunEnabled()) {
-            msPerTile = 300;
-        } else {
-            msPerTile = 600;
-        }
-
         // first priority is ensuring we have enough space
         if (getInventory().emptySlotCount() < 3) {
             state = 3;
@@ -144,6 +138,22 @@ public class Main extends AbstractScript {
         // log("releaseableLizard: " + releaseableLizard);
         log("myTiles: " + getTrapTilesLogString());
 
+    }
+
+    private int getMSPerTile(Entity target) {
+        if (getWalking().isRunEnabled()) {
+
+            // if we're right adjacent to the object the player only walks
+            int numTiles = getWalking().getAStarPathFinder().calculate(
+                    getLocalPlayer().getTile(), target.getTile()).size();
+            if (numTiles == 1) {
+                return 600;
+            }
+
+            return 300;
+        } else {
+            return 600;
+        }
     }
 
     private StringBuilder getTrapTilesLogString() {
@@ -261,7 +271,7 @@ public class Main extends AbstractScript {
                     getLocalPlayer().getTile(), nearestSettableTrap.getTile()).size();
             int setTrapTime = 1800;
             int buffer = 50;
-            int sleepMinimum = (numTiles * msPerTile) + setTrapTime + buffer;
+            int sleepMinimum = (numTiles * getMSPerTile(nearestSettableTrap)) + setTrapTime + buffer;
             int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
             log(String.format(
                     "Player at %d, %d - Sleeping %d ms for trap to set at %d, %d",
@@ -296,7 +306,7 @@ public class Main extends AbstractScript {
                     getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
             int setTrapTime = 600;
             int buffer = 50;
-            int sleepMinimum = (numTiles * msPerTile) + setTrapTime + buffer;
+            int sleepMinimum = (numTiles * getMSPerTile(nearestCheckableTrap)) + setTrapTime + buffer;
 
             int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
             log(String.format(
@@ -352,7 +362,7 @@ public class Main extends AbstractScript {
                     getLocalPlayer().getTile(), nextItem.getTile()).size();
             int actionTime = 600;
             int buffer = 50;
-            int sleepMinimum = (numTiles * msPerTile) + actionTime + buffer;
+            int sleepMinimum = (numTiles * getMSPerTile(nextItem)) + actionTime + buffer;
             int sleepTime = Calculations.random(
                     sleepMinimum, sleepMinimum + 200
             );
