@@ -21,7 +21,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 1.007,
+        version = 1.008,
         name = "Poacher"
 )
 
@@ -37,7 +37,7 @@ public class Main extends AbstractScript {
     private GameObject nearestSettableTrap;
     private GameObject nearestCheckableTrap;
     private GroundItem nearestItem;
-    private Item releaseableLizard;
+    private List<Item> releaseableLizards = new ArrayList<>();
 
     private List<Tile> myTrapTiles = new ArrayList<>();
 
@@ -91,7 +91,7 @@ public class Main extends AbstractScript {
         nearestSettableTrap = getNearestSettableTrap();
         nearestCheckableTrap = getNearestCheckableTrap();
         nearestItem = getNearestItem();
-        releaseableLizard = getReleaseableLizard();
+        releaseableLizards = getReleaseableLizards();
 
         // first priority is ensuring we have enough space
         if (getInventory().emptySlotCount() < 3) {
@@ -116,7 +116,6 @@ public class Main extends AbstractScript {
             }
         }
 
-
         // now update main state so we know what action to perform next
         if (nearestItem != null) {
             state = 0;
@@ -124,7 +123,7 @@ public class Main extends AbstractScript {
             state = 1;
         } else if (nearestCheckableTrap != null) {
             state = 2;
-        } else if (releaseableLizard != null) {
+        } else if (!releaseableLizards.isEmpty()) {
             state = 3;
         } else {
             state = -1;
@@ -135,7 +134,7 @@ public class Main extends AbstractScript {
         // log("nearestSettableL: " + nearestSettableTrap);
         // log("nearestCheckable: " + nearestCheckableTrap);
         // log("nearestItem: " + nearestItem);
-        // log("releaseableLizard: " + releaseableLizard);
+        // log("releaseableLizards: " + releaseableLizards);
         log("myTiles: " + getTrapTilesLogString());
 
     }
@@ -245,16 +244,19 @@ public class Main extends AbstractScript {
         return nearestItem;
     }
 
-    private Item getReleaseableLizard() {
+    private List<Item> getReleaseableLizards() {
 
-        Item capturedLizard = null;
-
-        if (getInventory().contains(currentLizard.getLizardName())) {
-            capturedLizard = getInventory().get(currentLizard.getLizardName());
+        List<Item> inventory = getInventory().getCollection();
+        List<Item> lizards = new ArrayList<>();
+        for (Item item : inventory) {
+            if (item != null) {
+                if (item.getName().equals(currentLizard.getLizardName())) {
+                    lizards.add(item);
+                }
+            }
         }
 
-        return  capturedLizard;
-
+        return lizards;
     }
 
     private void setTrap() {
@@ -401,26 +403,27 @@ public class Main extends AbstractScript {
 
     }
 
-    private List<Item> getInventoryLizards() {
-        List<Item> inventory = getInventory().getCollection();
-        List<Item> lizards = new ArrayList<Item>();
-        for (Item item : inventory) {
-            if (item.getName().equals(currentLizard.getLizardName())) {
-                lizards.add(item);
-            }
-        }
-
-        return lizards;
-    }
-
     private void releaseLizard() {
 
         if (!getTabs().isOpen(Tab.INVENTORY)) {
             getTabs().openWithMouse(Tab.INVENTORY);
         } else {
-            if (releaseableLizard.interact("Release")) {
-                // log("Released lizard in slot " + releaseableLizard.getSlot());
+
+            getKeyboard().pressShift();
+
+            int numRelease = Calculations.random(0, releaseableLizards.size() - 1);
+            int numReleased = 0;
+            int index = 0;
+
+            log(String.format("releasing %d lizards", numRelease));
+            while (numReleased < numRelease) {
+                releaseableLizards.get(index).interact();
+                sleep(150, 300);
+                index += 1;
+                numReleased += 1;
             }
+
+            getKeyboard().releaseShift();
         }
 
     }
