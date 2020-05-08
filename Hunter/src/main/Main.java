@@ -12,6 +12,7 @@ import org.dreambot.api.wrappers.interactive.GameObject;
 import org.dreambot.api.wrappers.items.GroundItem;
 import org.dreambot.api.wrappers.items.Item;
 import utils.Lizard;
+import utils.TrapObject;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -22,25 +23,22 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 2.001,
+        version = 3.000,
         name = "Poacher"
 )
 
 
 public class Main extends AbstractScript {
 
-    private int state = -1;
     private Lizard prey;
 
     private int currentHunter = -1;
     private int initialHunterXP = 0;
 
-    private GameObject nearestSettableTrap;
-    private GameObject nearestCheckableTrap;
-    private GroundItem nearestItem;
+    private List<TrapObject> myTraps = new ArrayList<>();
     private List<Item> releaseableLizards = new ArrayList<>();
-
-    private List<Tile> myTrapTiles = new ArrayList<>();
+    private TrapObject nextTrap;
+    private List<GameObject> objects;
 
     @Override
     public void onStart() {
@@ -48,6 +46,8 @@ public class Main extends AbstractScript {
 
         prey = Lizard.RED;
         initialHunterXP =  getSkills().getExperience(Skill.HUNTER);
+        currentHunter = getSkills().getRealLevel(Skill.HUNTER);
+        initialiseTraps();
     }
 
     @Override
@@ -55,24 +55,23 @@ public class Main extends AbstractScript {
 
         // log("looping");
 
-        //         update state
+        // update state
         updateState();
 
         // do stuff
-        if (state == 0) {
-            // log("taking items");
-            takeItems();
-        } else if (state == 1) {
-            // log("setting trap");
-            setTrap();
-        } else if (state == 2) {
-            // log("checking trap");
-            checkTrap();
-        } else if (state == 3) {
-            // log("releasing lizard");
+        // first priority is ensuring we have enough space
+        if (getInventory().emptySlotCount() < 3 && nextTrap.getState() == nextTrap.COMPLETED) {
             releaseLizard();
-        } else if (state == -1) {
-            // log("waiting");
+        } else if (nextTrap.getState() == nextTrap.FAILED) {
+            takeItems();
+        } else if (nextTrap.getState() == nextTrap.WAITING) {
+            setTrap();
+        } else if (nextTrap.getState() == nextTrap.COMPLETED) {
+            checkTrap();
+        } else if (nextTrap.getState() == nextTrap.IN_PROGRESS) {
+            releaseLizard();
+        } else if (nextTrap.getState() == nextTrap.NONE) {
+            log("nothing to do");
         }
 
         return Calculations.random(300, 400);
@@ -85,59 +84,73 @@ public class Main extends AbstractScript {
         log("You poached " + (finalHunterXP - initialHunterXP) + " xp - Congratz!");
     }
 
-    private void updateState() {
-       currentHunter = getSkills().getRealLevel(Skill.HUNTER);
+    private void initialiseTraps() {
 
-        // now check what's nearest based on new info from above
-        nearestSettableTrap = getNearestSettableTrap();
-        nearestCheckableTrap = getNearestCheckableTrap();
-        nearestItem = getNearestItem();
-        releaseableLizards = getReleaseableLizards();
-
-        // first priority is ensuring we have enough space
-        if (getInventory().emptySlotCount() < 3) {
-            state = 3;
-            return;
-        }
-
-        // next override default priority if we're right next to a settable trap
-        // most likely because we just checked it
-        if (nearestSettableTrap != null) {
-            if (getLocalPlayer().distance(nearestSettableTrap) < 2.1 && nearestItem != null) {
-
-                if (nearestSettableTrap.distance(nearestItem) < 1.1) {
-                    // log("picking up collapsed trap");
-                    state = 0;
-                    return;
-                }
-
-                // log("setting this trap first, get those items in sec ");
-                state = 1;
-                return;
+        List<TrapObject> tempTraps = new ArrayList<>();
+        objects = getGameObjects().all();
+        for (GameObject object : objects) {
+            if (object.getID() == prey.trap.emptyTreeID) {
+                TrapObject trap = new TrapObject(object, getLocalPlayer());
+                tempTraps.add(trap);
             }
         }
 
-        // now update main state so we know what action to perform next
-        if (nearestItem != null) {
-            state = 0;
-        } else if (nearestSettableTrap != null) {
-            state = 1;
-        } else if (nearestCheckableTrap != null) {
-            state = 2;
-        } else if (!releaseableLizards.isEmpty()) {
-            state = 3;
-        } else {
-            state = -1;
+        // sort traps by distance from player
+        tempTraps.sort(TrapObject.TrapDistanceComparator);
+
+        // add as many traps as we have the hunter level for
+        int index = 0;
+        while (myTraps.size() < maxTraps(currentHunter)) {
+            myTraps.add(tempTraps.get(index));
+            if (index < tempTraps.size() -1) {
+                index += 1;
+            } else {
+                break;
+            }
         }
 
-        // log the updated state
-        // log("current Hunter: " + currentHunter);
-        // log("nearestSettableL: " + nearestSettableTrap);
-        // log("nearestCheckable: " + nearestCheckableTrap);
-        // log("nearestItem: " + nearestItem);
-        // log("releaseableLizards: " + releaseableLizards);
-        log("myTiles: " + getTrapTilesLogString());
+        log(String.format("Initialised with %d traps", myTraps.size()));
+    }
 
+    private void updateState() {
+
+        // collect game data
+        currentHunter = getSkills().getRealLevel(Skill.HUNTER);
+        objects = getGameObjects().all();
+        List<GroundItem> groundItems = getGroundItems().all();
+        releaseableLizards = getReleaseableLizards();
+
+        // update trap state and priority from game data
+        for (TrapObject trap : myTraps) {
+
+            // check game objects
+            for (GameObject object : objects) {
+                if (object.getIndex() == trap.getEmptyTree().getIndex()) {
+                    trap.setState(trap.WAITING);
+                } else if (object.getID() == prey.trap.emptyNetID) {
+                    if (trap.setEmptyNet(object) >= 0) {
+                        trap.setState(trap.IN_PROGRESS);
+                    }
+                } else if (object.getID() == prey.trap.fullNetID) {
+                    if (trap.setFullNet(object) >= 0) {
+                        trap.setState(trap.COMPLETED);
+                    }
+                }
+            }
+
+            // check ground items
+            for (GroundItem item : groundItems) {
+                if (item.getID() == prey.ropeID || item.getID() == prey.netID) {
+                    if (trap.addItem(item) >= 0) {
+                        trap.setState(trap.FAILED);
+                    }
+                }
+            }
+        }
+
+        // sort traps by priority and pick out the top priority trap
+        myTraps.sort(TrapObject.TrapPriorityComparator);
+        nextTrap = myTraps.get(0);
     }
 
     private int getMSPerTile(Entity target) {
@@ -156,23 +169,6 @@ public class Main extends AbstractScript {
         }
     }
 
-    private StringBuilder getTrapTilesLogString() {
-        StringBuilder myTrapTilesLog = new StringBuilder();
-        for (Tile tile : myTrapTiles) {
-
-            int x = tile.getX();
-            int y = tile.getY();
-
-            if (!myTrapTilesLog.toString().equals("")) {
-                myTrapTilesLog.append(" - ");
-            }
-
-            myTrapTilesLog.append(x).append(",").append(y);
-        }
-
-        return myTrapTilesLog;
-    }
-
     private int maxTraps(int hunterLevel) {
         if (hunterLevel >= 80) {
             return 5;
@@ -185,63 +181,6 @@ public class Main extends AbstractScript {
         } else {
             return 1;
         }
-    }
-
-    private GameObject getNearestSettableTrap() {
-
-        GameObject trap = getGameObjects().closest(
-                f -> f != null && f.getID() ==  prey.trap.emptyTreeID
-        );
-
-        if (myTrapTiles.size() < maxTraps(currentHunter)) {
-            return trap;
-        } else {
-            return null;
-        }
-
-    }
-
-    private GameObject getNearestCheckableTrap() {
-
-        GameObject nearest = null;
-
-        List<GameObject> objs = getGameObjects().all(f -> f != null && f.getID() == prey.trap.fullNetID);
-
-        for (Tile tile : myTrapTiles) {
-
-            for (GameObject obj : objs) {
-                if (nearest == null && obj.distance(tile) < 2) {
-                    nearest = obj;
-                } else if (getLocalPlayer().distance(obj) < getLocalPlayer().distance(nearest)) {
-                    nearest = obj;
-                }
-            }
-        }
-
-        return nearest;
-    }
-
-    private GroundItem getNearestItem() {
-
-        GroundItem nearestItem = null;
-
-        for (Tile tile: myTrapTiles) {
-
-            GroundItem item = getGroundItems().closest(
-                    groundItem -> groundItem != null
-                            && (groundItem.getID() == prey.ropeID
-                                || groundItem.getID() == prey.netID)
-                            && groundItem.distance(tile) < 2
-            );
-
-            if (item != null) {
-                // log("actual distance = " + item.distance(tile));
-                nearestItem = item;
-            }
-
-        }
-
-        return nearestItem;
     }
 
     private List<Item> getReleaseableLizards() {
@@ -261,9 +200,7 @@ public class Main extends AbstractScript {
 
     private void setTrap() {
 
-        int x = nearestSettableTrap.getX();
-        int y = nearestSettableTrap.getY();
-        // log("setting trap at: " + x + "," + y);
+        GameObject nearestSettableTrap = nextTrap.getEmptyTree();
 
         Point centrePoint = nearestSettableTrap.getCenterPoint();
         boolean onScreen = getClient().getViewport().isOnGameScreen(centrePoint);
@@ -295,7 +232,7 @@ public class Main extends AbstractScript {
                         "Player at %d, %d - Sleeping %d ms for trap to set at %d, %d",
                         getLocalPlayer().getX(), getLocalPlayer().getY(),
                         sleepTime,
-                        x, y
+                        nearestSettableTrap.getX(), nearestSettableTrap.getY()
                 ));
 
                 GameObject finalEmptyNet = emptyNet;
@@ -305,23 +242,17 @@ public class Main extends AbstractScript {
                 // add human-ish reaction time
                 // sleep(Calculations.random(300, 600));
 
-                // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
-                Tile tile = nearestSettableTrap.getTile();
-                // log("Adding trap tile: " + tile.getX() + "," + tile.getY());
-                myTrapTiles.add(tile);
             }
-        } else if (getLocalPlayer().distance(nearestSettableTrap) < 10) {
-            getWalking().walk(nearestSettableTrap);
         } else {
-            log("TODO: long distance walker");
+            if (!getLocalPlayer().isMoving()) {
+                getWalking().walk(nearestSettableTrap);
+            }
         }
     }
 
     private void checkTrap() {
 
-        int x = nearestCheckableTrap.getX();
-        int y = nearestCheckableTrap.getY();
-        // log("checking trap at: " + x + "," + y);
+        GameObject nearestCheckableTrap = nextTrap.getFullNet();
 
         Point centrePoint = nearestCheckableTrap.getCenterPoint();
         boolean onScreen = getClient().getViewport().isOnGameScreen(centrePoint);
@@ -344,71 +275,40 @@ public class Main extends AbstractScript {
                 // add human-ish reaction time
                 sleep(Calculations.random(150, 600));
 
-//                log(String.format(
-//                        "Player at %d, %d - Sleeping %d ms for trap to check at %d, %d",
-//                        getLocalPlayer().getX(), getLocalPlayer().getY(),
-//                        sleepTime,
-//                        x, y
-//                ));
-
-                int beforeSize = myTrapTiles.size();
-
-                // remove the area from list
-                myTrapTiles.removeIf(a -> a.distance(nearestCheckableTrap) < 1.1);
-                // quick hack here                                            ^
-                // sometimes trap was coming up as distance 0.0
-                // probably picking the wrong id somehow, going to refactor all this later
-                log("removed " + (beforeSize - myTrapTiles.size() + " tiles"));
             }
-        } else if (getLocalPlayer().distance(nearestCheckableTrap) < 10) {
-            getWalking().walk(nearestCheckableTrap);
         } else {
-            log("TODO: long distance walker");
+            if (!getLocalPlayer().isMoving()) {
+                getWalking().walk(nearestCheckableTrap);
+            }
         }
-    }
-
-    private boolean itemsOnSameTile(GroundItem a, GroundItem b) {
-        return a.getTile().getX() == b.getTile().getX() && a.getTile().getY() == b.getTile().getY();
-    }
-
-    private List<GroundItem> getNearestItemPile() {
-        return getGroundItems().all(
-                groundItem -> groundItem != null
-                        && (groundItem.getID() == prey.netID || groundItem.getID() == prey.ropeID)
-                        && itemsOnSameTile(groundItem, nearestItem)
-        );
     }
 
     private void takeItems() {
 
-        int x = nearestItem.getX();
-        int y = nearestItem.getY();
-        // log("taking items at: " + x + "," + y);
+        List<GroundItem> itemsToTake = nextTrap.getItems();
+        GroundItem nextItemToTake = itemsToTake.get(itemsToTake.size() - 1);
 
-        List<GroundItem> items;
+        int x = nextItemToTake.getX();
+        int y = nextItemToTake.getY();
 
-        while (true) {
+        // calculate how long we need to wait before trying to pick up next item
+        int numTiles = getWalking().getAStarPathFinder().calculate(
+                getLocalPlayer().getTile(), nextItemToTake.getTile()).size();
+        int actionTime = 600;
+        int buffer = 50;
+        int sleepMinimum = (numTiles * getMSPerTile(nextItemToTake)) + actionTime + buffer;
+        int sleepTime = Calculations.random(
+                sleepMinimum, sleepMinimum + 200
+        );
 
-            items = getNearestItemPile();
 
-            if (items.isEmpty()) {
-                log("all items taken");
-                break;
-            }
-            GroundItem nextItem = items.get(items.size() -1);
+        Point centrePoint = nextItemToTake.getCenterPoint();
+        boolean onScreen = getClient().getViewport().isOnGameScreen(centrePoint);
 
-            // calculate how long we need to wait before trying to pick up next item
-            int numTiles = getWalking().getAStarPathFinder().calculate(
-                    getLocalPlayer().getTile(), nextItem.getTile()).size();
-            int actionTime = 600;
-            int buffer = 50;
-            int sleepMinimum = (numTiles * getMSPerTile(nextItem)) + actionTime + buffer;
-            int sleepTime = Calculations.random(
-                    sleepMinimum, sleepMinimum + 200
-            );
+        if (onScreen) {
 
             long start = System.currentTimeMillis();
-            if (nextItem.interact("Take")) {
+            if (nextItemToTake.interact("Take")) {
                 long end = System.currentTimeMillis();
                 int duration = (int) (end - start);
                 // log(String.format("Take interaction took %d ms", end - start));
@@ -419,26 +319,22 @@ public class Main extends AbstractScript {
                         "Player at %d, %d - Sleeping %d ms to take %s at %d, %d",
                         getLocalPlayer().getX(), getLocalPlayer().getY(),
                         sleepTime,
-                        nextItem.toString(),
+                        nextItemToTake.toString(),
                         x, y
                 ));
                 sleep(sleepTime);
 
-                if (!nextItem.exists()) {
-                    items.remove(nextItem);
+                if (!nextItemToTake.exists()) {
+                    nextTrap.removeItem(nextItemToTake);
                 } else {
-                    log(String.format("%s still exists!", nextItem.toString()));
+                    log(String.format("%s still exists!", nextItemToTake.toString()));
                 }
-
-            } else {
-                log("TODO: walker or move cam");
+            }
+        } else {
+            if (!getLocalPlayer().isMoving()) {
+                getWalking().walk(nextItemToTake);
             }
         }
-
-        int beforeSize = myTrapTiles.size();
-        myTrapTiles.removeIf(t -> t.distance(nearestItem.getTile()) == 1.0);
-        log(String.format("Removed %d tiles", beforeSize - myTrapTiles.size()));
-
     }
 
     private void releaseLizard() {
@@ -447,21 +343,25 @@ public class Main extends AbstractScript {
             getTabs().openWithMouse(Tab.INVENTORY);
         } else {
 
-            getKeyboard().pressShift();
+            if (releaseableLizards.size() > 0) {
 
-            int numRelease = Calculations.random(releaseableLizards.size());
-            int numReleased = 0;
-            int index = 0;
+                getKeyboard().pressShift();
 
-            log(String.format("releasing %d lizards", numRelease));
-            while (numReleased <= numRelease) {
-                releaseableLizards.get(index).interact();
-                sleep(150, 300);
-                index += 1;
-                numReleased += 1;
+                int numRelease = Calculations.random(releaseableLizards.size());
+                int numReleased = 0;
+                int index = 0;
+
+                log(String.format("releasing %d lizards", numRelease));
+                while (numReleased <= numRelease) {
+                    releaseableLizards.get(index).interact();
+                    sleep(150, 300);
+                    index += 1;
+                    numReleased += 1;
+                }
+
+                getKeyboard().releaseShift();
             }
 
-            getKeyboard().releaseShift();
         }
 
     }
