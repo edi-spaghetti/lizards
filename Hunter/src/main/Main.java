@@ -21,7 +21,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 1.008,
+        version = 2.000,
         name = "Poacher"
 )
 
@@ -29,7 +29,7 @@ import java.util.List;
 public class Main extends AbstractScript {
 
     private int state = -1;
-    private Lizard currentLizard;
+    private Lizard prey;
 
     private int currentHunter = -1;
     private int initialHunterXP = 0;
@@ -45,7 +45,7 @@ public class Main extends AbstractScript {
     public void onStart() {
         super.onStart();
 
-        currentLizard = Lizard.GREEN;
+        prey = Lizard.RED;
         initialHunterXP =  getSkills().getExperience(Skill.HUNTER);
     }
 
@@ -189,9 +189,8 @@ public class Main extends AbstractScript {
     private GameObject getNearestSettableTrap() {
 
         GameObject trap = getGameObjects().closest(
-                f -> f.getName().equals(currentLizard.getTrapName())
-                        && f.hasAction("Set-trap")
-                );
+                f -> f.getID() == prey.trap.emptyTreeID
+        );
 
         if (myTrapTiles.size() < maxTraps(currentHunter)) {
             return trap;
@@ -205,7 +204,7 @@ public class Main extends AbstractScript {
 
         GameObject nearest = null;
 
-        List<GameObject> objs = getGameObjects().all(f -> f.getID() == currentLizard.checkableTrapID);
+        List<GameObject> objs = getGameObjects().all(f -> f.getID() == prey.trap.fullNetID);
 
         for (Tile tile : myTrapTiles) {
 
@@ -229,8 +228,8 @@ public class Main extends AbstractScript {
 
             GroundItem item = getGroundItems().closest(
                     groundItem -> groundItem != null
-                            && (groundItem.getID() == currentLizard.ropeID
-                                || groundItem.getID() == currentLizard.netID)
+                            && (groundItem.getID() == prey.ropeID
+                                || groundItem.getID() == prey.netID)
                             && groundItem.distance(tile) < 2
             );
 
@@ -250,7 +249,7 @@ public class Main extends AbstractScript {
         List<Item> lizards = new ArrayList<>();
         for (Item item : inventory) {
             if (item != null) {
-                if (item.getName().equals(currentLizard.getLizardName())) {
+                if (item.getID() == prey.invID) {
                     lizards.add(item);
                 }
             }
@@ -336,7 +335,7 @@ public class Main extends AbstractScript {
     private List<GroundItem> getNearestItemPile() {
         return getGroundItems().all(
                 groundItem -> groundItem != null
-                        && (groundItem.getID() == currentLizard.netID || groundItem.getID() == currentLizard.ropeID)
+                        && (groundItem.getID() == prey.netID || groundItem.getID() == prey.ropeID)
                         && itemsOnSameTile(groundItem, nearestItem)
         );
     }
@@ -411,12 +410,12 @@ public class Main extends AbstractScript {
 
             getKeyboard().pressShift();
 
-            int numRelease = Calculations.random(0, releaseableLizards.size() - 1);
+            int numRelease = Calculations.random(releaseableLizards.size());
             int numReleased = 0;
             int index = 0;
 
             log(String.format("releasing %d lizards", numRelease));
-            while (numReleased < numRelease) {
+            while (numReleased <= numRelease) {
                 releaseableLizards.get(index).interact();
                 sleep(150, 300);
                 index += 1;
