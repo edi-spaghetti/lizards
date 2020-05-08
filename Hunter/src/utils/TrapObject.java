@@ -47,10 +47,10 @@ public class TrapObject {
             // this usually means we've just picked up a
             // collapsed trap or checked a successful one, so
             // resetting should take precedence
-            this.priority = 999999999;
-        } else if (newState == WAITING) {
-            // if we're waiting there's nothing to do anyway
             this.priority = 0;
+        } else if (newState == IN_PROGRESS) {
+            // if the trap is currently set there's nothing to do anyway
+            this.priority = 999999999;
         } else {
             // this should mean traps that have been waiting longer
             // get seen to first
@@ -66,13 +66,17 @@ public class TrapObject {
         return this.state;
     }
 
+    public void setEmptyTree(GameObject object) {
+        this.emptyTree = object;
+    }
+
     public GameObject getEmptyTree() {
         return this.emptyTree;
     }
 
     public int setEmptyNet(GameObject object) {
         if (object.distance(this.emptyTree) <= 1.0) {
-            if (this.emptyNet == null) {
+            if (this.emptyNet == null || !this.emptyNet.exists()) {
                 this.emptyNet = object;
                 // new net added
                 return 1;
@@ -92,7 +96,7 @@ public class TrapObject {
 
     public int setFullNet(GameObject object) {
         if (object.distance(this.emptyTree) <= 1.0) {
-            if (this.fullNet == null) {
+            if (this.fullNet == null || !this.fullNet.exists()) {
                 this.fullNet = object;
                 // new net added
                 return 1;

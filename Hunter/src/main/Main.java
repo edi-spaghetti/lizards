@@ -23,7 +23,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.000,
+        version = 3.001,
         name = "Poacher"
 )
 
@@ -61,14 +61,19 @@ public class Main extends AbstractScript {
         // do stuff
         // first priority is ensuring we have enough space
         if (getInventory().emptySlotCount() < 3 && nextTrap.getState() == nextTrap.COMPLETED) {
+            log("prioritising lizard release");
             releaseLizard();
         } else if (nextTrap.getState() == nextTrap.FAILED) {
+            log("taking items");
             takeItems();
         } else if (nextTrap.getState() == nextTrap.WAITING) {
+            log("setting trap");
             setTrap();
         } else if (nextTrap.getState() == nextTrap.COMPLETED) {
+            log("checking trap");
             checkTrap();
         } else if (nextTrap.getState() == nextTrap.IN_PROGRESS) {
+            log("normally releasing lizards");
             releaseLizard();
         } else if (nextTrap.getState() == nextTrap.NONE) {
             log("nothing to do");
@@ -126,6 +131,7 @@ public class Main extends AbstractScript {
             // check game objects
             for (GameObject object : objects) {
                 if (object.getIndex() == trap.getEmptyTree().getIndex()) {
+                    trap.setEmptyTree(object);
                     trap.setState(trap.WAITING);
                 } else if (object.getID() == prey.trap.emptyNetID) {
                     if (trap.setEmptyNet(object) >= 0) {
