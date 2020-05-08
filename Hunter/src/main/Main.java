@@ -13,6 +13,7 @@ import org.dreambot.api.wrappers.items.GroundItem;
 import org.dreambot.api.wrappers.items.Item;
 import utils.Lizard;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +22,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 2.000,
+        version = 2.001,
         name = "Poacher"
 )
 
@@ -189,7 +190,7 @@ public class Main extends AbstractScript {
     private GameObject getNearestSettableTrap() {
 
         GameObject trap = getGameObjects().closest(
-                f -> f.getID() == prey.trap.emptyTreeID
+                f -> f != null && f.getID() ==  prey.trap.emptyTreeID
         );
 
         if (myTrapTiles.size() < maxTraps(currentHunter)) {
@@ -204,7 +205,7 @@ public class Main extends AbstractScript {
 
         GameObject nearest = null;
 
-        List<GameObject> objs = getGameObjects().all(f -> f.getID() == prey.trap.fullNetID);
+        List<GameObject> objs = getGameObjects().all(f -> f != null && f.getID() == prey.trap.fullNetID);
 
         for (Tile tile : myTrapTiles) {
 
@@ -264,29 +265,55 @@ public class Main extends AbstractScript {
         int y = nearestSettableTrap.getY();
         // log("setting trap at: " + x + "," + y);
 
-        // set the trap
-        if (nearestSettableTrap.interact("Set-trap")) {
+        Point centrePoint = nearestSettableTrap.getCenterPoint();
+        boolean onScreen = getClient().getViewport().isOnGameScreen(centrePoint);
 
-            // wait for trap to be set up
-            int numTiles = getWalking().getAStarPathFinder().calculate(
-                    getLocalPlayer().getTile(), nearestSettableTrap.getTile()).size();
-            int setTrapTime = 1800;
-            int buffer = 50;
-            int sleepMinimum = (numTiles * getMSPerTile(nearestSettableTrap)) + setTrapTime + buffer;
-            int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
-            log(String.format(
-                    "Player at %d, %d - Sleeping %d ms for trap to set at %d, %d",
-                    getLocalPlayer().getX(), getLocalPlayer().getY(),
-                    sleepTime,
-                    x, y
-            ));
+        // check the trap is actually on screen
+        if (onScreen) {
 
-            sleep(sleepTime);
+            // set the actual trap
+            if (nearestSettableTrap.interact("Set-trap")) {
 
-            // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
-            Tile tile = nearestSettableTrap.getTile();
-            // log("Adding trap tile: " + tile.getX() + "," + tile.getY());
-            myTrapTiles.add(tile);
+                // wait until the empty net object has been spawned
+                GameObject emptyNet = null;
+                while (emptyNet == null) {
+                    emptyNet = getGameObjects().closest(o -> o != null
+                            && o.getID() == prey.trap.emptyNetID
+                            && nearestSettableTrap.distance(o) == 1.0
+                    );
+                    sleep(Calculations.random(100, 150));
+                }
+
+                // calculate a reasonable timeout
+                int numTiles = getWalking().getAStarPathFinder().calculate(
+                        getLocalPlayer().getTile(), nearestSettableTrap.getTile()).size();
+                int setTrapTime = 1800;
+                int buffer = 50;
+                int sleepMinimum = (numTiles * getMSPerTile(nearestSettableTrap)) + setTrapTime + buffer;
+                int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
+                log(String.format(
+                        "Player at %d, %d - Sleeping %d ms for trap to set at %d, %d",
+                        getLocalPlayer().getX(), getLocalPlayer().getY(),
+                        sleepTime,
+                        x, y
+                ));
+
+                GameObject finalEmptyNet = emptyNet;
+                sleepUntil(() -> getLocalPlayer().getAnimation() == -1
+                        && getLocalPlayer().distance(finalEmptyNet) == 1.0, sleepTime);
+
+                // add human-ish reaction time
+                // sleep(Calculations.random(300, 600));
+
+                // add the area surrounding the trap so we don't accidentally pick up someone else's equipment
+                Tile tile = nearestSettableTrap.getTile();
+                // log("Adding trap tile: " + tile.getX() + "," + tile.getY());
+                myTrapTiles.add(tile);
+            }
+        } else if (getLocalPlayer().distance(nearestSettableTrap) < 10) {
+            getWalking().walk(nearestSettableTrap);
+        } else {
+            log("TODO: long distance walker");
         }
     }
 
@@ -296,35 +323,47 @@ public class Main extends AbstractScript {
         int y = nearestCheckableTrap.getY();
         // log("checking trap at: " + x + "," + y);
 
-        // cache a copy of this before we remove the object
-        Tile tile = nearestCheckableTrap.getTile();
+        Point centrePoint = nearestCheckableTrap.getCenterPoint();
+        boolean onScreen = getClient().getViewport().isOnGameScreen(centrePoint);
 
-        if (nearestCheckableTrap.interact("Check")) {
+        if (onScreen) {
 
-            // wait for trap to be checked
-            // TODO: this should be a separate function
-            int numTiles = getWalking().getAStarPathFinder().calculate(
-                    getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
-            int setTrapTime = 600;
-            int buffer = 50;
-            int sleepMinimum = (numTiles * getMSPerTile(nearestCheckableTrap)) + setTrapTime + buffer;
+            if (nearestCheckableTrap.interact("Check")) {
 
-            int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
-            log(String.format(
-                    "Player at %d, %d - Sleeping %d ms for trap to check at %d, %d",
-                    getLocalPlayer().getX(), getLocalPlayer().getY(),
-                    sleepTime,
-                    x, y
-            ));
+                // calculate a reasonable timeout
+                // TODO: this should be a separate function
+                int numTiles = getWalking().getAStarPathFinder().calculate(
+                        getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
+                int setTrapTime = 600;
+                int buffer = 50;
+                int sleepMinimum = (numTiles * getMSPerTile(nearestCheckableTrap)) + setTrapTime + buffer;
+                int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
 
-            sleep(sleepTime);
+                sleepUntil(() -> !nearestCheckableTrap.exists(), sleepTime);
 
-            // log("nearest checkable traps exists: " + nearestCheckableTrap.exists());
+                // add human-ish reaction time
+                sleep(Calculations.random(150, 600));
 
-            int beforeSize = myTrapTiles.size();
-            // remove the area from list
-            myTrapTiles.removeIf(a -> (a.getX() == tile.getX() && a.getY() == tile.getY()));
-            log("removed " + (beforeSize - myTrapTiles.size() + " tiles"));
+//                log(String.format(
+//                        "Player at %d, %d - Sleeping %d ms for trap to check at %d, %d",
+//                        getLocalPlayer().getX(), getLocalPlayer().getY(),
+//                        sleepTime,
+//                        x, y
+//                ));
+
+                int beforeSize = myTrapTiles.size();
+
+                // remove the area from list
+                myTrapTiles.removeIf(a -> a.distance(nearestCheckableTrap) < 1.1);
+                // quick hack here                                            ^
+                // sometimes trap was coming up as distance 0.0
+                // probably picking the wrong id somehow, going to refactor all this later
+                log("removed " + (beforeSize - myTrapTiles.size() + " tiles"));
+            }
+        } else if (getLocalPlayer().distance(nearestCheckableTrap) < 10) {
+            getWalking().walk(nearestCheckableTrap);
+        } else {
+            log("TODO: long distance walker");
         }
     }
 
