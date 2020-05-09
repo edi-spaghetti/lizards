@@ -51,31 +51,41 @@ public class TrapObject {
 
         // keep a record of when state changed
         if (this.state != newState) {
+
             // you can't go from in progress to waiting, but the empty tree
             // model appears before the items do, which causes a 1 milisecond
             // state change that rarely gets prioritised
-            if (!(this.state == IN_PROGRESS && newState == WAITING)) {
-                log(String.format("trap at %d, %d state %s -> %s",
+            if ((this.state == IN_PROGRESS && newState == WAITING)) {
+                return;
+            }
+
+            // only update time if we're adding the first item for a failed trap
+            // for other states update the time
+            if (this.state != FAILED || this.getItems().isEmpty()) {
+                this.stateChangedAt = System.currentTimeMillis();
+                log(String.format("trap at %d, %d state change %s -> %s",
                         this.emptyTree.getX(), this.emptyTree.getY(),
                         statuses.get(this.state), statuses.get(newState)
                 ));
-
-                this.stateChangedAt = System.currentTimeMillis();
             }
         }
 
         // update priority based on state and state change
         if(this.state > WAITING && newState == WAITING) {
-            // this usually means we've just picked up a
-            // collapsed trap or checked a successful one, so
-            // resetting should take precedence
-            this.priority = 999999999;
+                // this usually means we've just picked up a
+                // collapsed trap or checked a successful one, so
+                // resetting should take precedence
+                this.priority = 999999999;
         } else if (newState == IN_PROGRESS) {
             // if the trap is currently set there's nothing to do anyway
             this.priority = 0;
         } else {
             // this should mean traps that have been waiting longer
             // get seen to first
+            log(String.format("trap at %d, %d state %s -> %s",
+                    this.emptyTree.getX(), this.emptyTree.getY(),
+                    statuses.get(this.state), this.stateChangedAt
+            ));
             this.priority = (int) (System.currentTimeMillis() - this.stateChangedAt);
         }
 
@@ -151,7 +161,7 @@ public class TrapObject {
                 this.items.add(item);
                 return 0;
             } else {
-                return -2;
+                return 2;
             }
         } else {
             // not my item

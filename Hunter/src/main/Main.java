@@ -23,7 +23,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.003,
+        version = 3.009,
         name = "Poacher"
 )
 
@@ -181,6 +181,7 @@ public class Main extends AbstractScript {
             for (GroundItem item : groundItems) {
                 if (item.getID() == prey.ropeID || item.getID() == prey.netID) {
                     if (trap.addItem(item) >= 0) {
+                        log(String.format("setting failed with %s -> %d", item.toString(), trap.getPriority()));
                         trap.setState(trap.FAILED);
                     }
                 }
