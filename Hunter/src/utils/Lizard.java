@@ -22,8 +22,8 @@ public enum Lizard {
         switch (lizardName) {
             case "Swamp lizard":
                 setTrap(Trap.GREEN);
-                setNpcID(-1);
-                setInvID(-1);
+                setNpcID(2906);
+                setInvID(10149);
                 break;
             case "Orange salamander":
                 setTrap(Trap.ORANGE);
