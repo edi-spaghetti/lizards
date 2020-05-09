@@ -170,6 +170,7 @@ public class TrapObject {
     }
 
     public int removeItem(GroundItem item) {
+        log(String.format("Removing %s", item.toString()));
         this.items.remove(item);
         return 1;
     }

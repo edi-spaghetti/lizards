@@ -23,7 +23,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.009,
+        version = 3.011,
         name = "Poacher"
 )
 
@@ -85,7 +85,7 @@ public class Main extends AbstractScript {
              log("nothing to do");
         }
 
-        return Calculations.random(300, 400);
+        return Calculations.random(150, 300);
     }
 
     @Override
@@ -334,6 +334,10 @@ public class Main extends AbstractScript {
 
         List<GroundItem> itemsToTake = nextTrap.getItems();
         GroundItem nextItemToTake = itemsToTake.get(itemsToTake.size() - 1);
+        log(String.format("taking %s at %d, %d",
+                nextItemToTake.toString(),
+                nextItemToTake.getTile().getX(), nextItemToTake.getTile().getY()
+        ));
 
         int x = nextItemToTake.getX();
         int y = nextItemToTake.getY();
@@ -357,7 +361,15 @@ public class Main extends AbstractScript {
             long start = System.currentTimeMillis();
             if (nextItemToTake.interact("Take")) {
                 long end = System.currentTimeMillis();
-                int duration = (int) (end - start);
+
+                // sometimes duration is more than sleepTime, in which case just make it 0
+                int duration;
+                if ((end - start) < 0) {
+                    duration = (int) (end - start);
+                } else {
+                    duration = 0;
+                }
+
                  log(String.format("Take interaction took %d ms", end - start));
 
                 sleepTime = sleepTime - duration;
@@ -369,7 +381,7 @@ public class Main extends AbstractScript {
                         nextItemToTake.toString(),
                         x, y
                 ));
-                sleep(sleepTime);
+                sleepUntil(() -> !nextItemToTake.exists(), sleepTime);
 
                 if (!nextItemToTake.exists()) {
                     nextTrap.removeItem(nextItemToTake);
@@ -378,6 +390,7 @@ public class Main extends AbstractScript {
                 }
             }
         } else {
+            log("item not on screen");
             if (!getLocalPlayer().isMoving()) {
                 getWalking().walk(nextItemToTake);
             }
