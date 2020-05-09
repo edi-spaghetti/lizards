@@ -1,8 +1,10 @@
 package main;
 
 import org.dreambot.api.methods.Calculations;
+import org.dreambot.api.methods.map.Tile;
 import org.dreambot.api.methods.skills.Skill;
 import org.dreambot.api.methods.tabs.Tab;
+import org.dreambot.api.methods.walking.path.impl.LocalPath;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
@@ -23,7 +25,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.011,
+        version = 3.015,
         name = "Poacher"
 )
 
@@ -56,6 +58,12 @@ public class Main extends AbstractScript {
 
         // update state
         updateState();
+
+        // if the camera is too low it gets hard to click on full nets
+        // this hack will stop the camera being too low
+        if (getCamera().getPitch() < 250) {
+            getCamera().rotateToPitch(Calculations.random(250, 383));
+        }
 
         // do stuff
         // first priority is ensuring we have enough space
@@ -247,6 +255,35 @@ public class Main extends AbstractScript {
         return lizards;
     }
 
+    private void getCloser(Entity entity) {
+        int sleepTime = 0;
+
+        if (getLocalPlayer().distance(entity) < 3) {
+
+            // determine length of path in tiles
+            LocalPath<Tile> path = getWalking().getAStarPathFinder().calculate(
+                    getLocalPlayer().getTile(), entity.getTile());
+
+            // determine which tile can be clicked on that moves us furthest
+            Tile mileStoneTile = getLocalPlayer().getTile();
+            for (Tile t: path) {
+                if (getMap().isTileOnScreen(t)) {
+                    mileStoneTile = t;
+                }
+            }
+
+            // walk there
+            getWalking().walkOnScreen(mileStoneTile);
+
+            // wait until we're reasonably close to target
+            sleepTime = (3 * getMSPerTile(entity));
+            Tile finalMileStoneTile = mileStoneTile;
+            sleepUntil(
+                    () -> getLocalPlayer().distance(finalMileStoneTile) < 3,
+                    Calculations.random(sleepTime, sleepTime + 200));
+        }
+    }
+
     private void setTrap() {
 
         Point centrePoint = nextEntity.getCenterPoint();
@@ -291,9 +328,7 @@ public class Main extends AbstractScript {
 
             }
         } else {
-            if (!getLocalPlayer().isMoving()) {
-                getWalking().walk(nextEntity);
-            }
+            getCloser(nextEntity);
         }
     }
 
@@ -324,9 +359,7 @@ public class Main extends AbstractScript {
 
             }
         } else {
-            if (!getLocalPlayer().isMoving()) {
-                getWalking().walk(nearestCheckableTrap);
-            }
+            getCloser(nearestCheckableTrap);
         }
     }
 
@@ -390,10 +423,7 @@ public class Main extends AbstractScript {
                 }
             }
         } else {
-            log("item not on screen");
-            if (!getLocalPlayer().isMoving()) {
-                getWalking().walk(nextItemToTake);
-            }
+            getCloser(nextItemToTake);
         }
     }
 
