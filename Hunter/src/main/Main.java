@@ -25,7 +25,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.030,
+        version = 3.032,
         name = "Poacher"
 )
 
@@ -257,10 +257,58 @@ public class Main extends AbstractScript {
         return lizards;
     }
 
+    private int yawToDegrees(int yaw) {
+        int maxYaw = 2050;
+        return (int) ((double) (maxYaw - yaw) / (double) maxYaw) * 360;
+    }
+
+    private int degreesToYaw(int degrees) {
+        int maxYaw = 2050;
+        return (degrees / 360) * maxYaw;
+    }
+
+    private void rotateToTarget(Entity target) {
+
+        // TODO: make this work
+
+        // get coords
+        int px = getLocalPlayer().getTile().getX();
+        int py = getLocalPlayer().getTile().getY();
+        int tx = target.getTile().getX();
+        int ty = target.getTile().getY();
+
+        // calculate vector to target
+        int v1 = px - tx;
+        int v2 = py - ty;
+        double vMag = Math.sqrt((double) v1 * v1 + v2 * v2);
+
+        // calculate camera vector (magnitude is 1)
+        int yaw = getCamera().getYaw();
+        int c1 = (int) Math.sin(yawToDegrees(yaw));
+        int c2 = (int) Math.cos(yawToDegrees(yaw));
+        int cMag = 1;
+
+        // calculate angle between those two vectors
+        int dot = v1 * c1 + v2 * c2;
+        int det = v1 * c1 - v2 * c2;
+        int angle = (int) Math.atan2(det, dot);
+        int yawOffset = degreesToYaw(angle);
+
+        getCamera().rotateToYaw(yaw - yawOffset);
+
+    }
+
     private void getCloser(Entity entity) {
         int sleepTime = 0;
 
         if (getLocalPlayer().distance(entity) > 3) {
+
+            // rotate camera first
+            getCamera().rotateToEntity(entity);
+            // if we can see it now, job done.
+            if (entity.isOnScreen()) {
+                return;
+            }
 
             // determine length of path in tiles
             LocalPath<Tile> path = getWalking().getAStarPathFinder().calculate(
