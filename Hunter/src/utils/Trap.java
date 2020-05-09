@@ -13,6 +13,7 @@ public enum Trap {
     public int emptyTreeID;
     public int bentTreeID;
     public String setActionName = "Set-trap";
+    public String checkActionName = "Check";
 
     Trap(String lizardname) {
         setFullNetID(lizardname);

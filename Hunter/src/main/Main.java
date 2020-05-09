@@ -25,7 +25,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.015,
+        version = 3.030,
         name = "Poacher"
 )
 
@@ -58,6 +58,7 @@ public class Main extends AbstractScript {
 
         // update state
         updateState();
+        getNextTrap();
 
         // if the camera is too low it gets hard to click on full nets
         // this hack will stop the camera being too low
@@ -195,7 +196,9 @@ public class Main extends AbstractScript {
                 }
             }
         }
+    }
 
+    private void getNextTrap() {
         // sort traps by priority and pick out the top priority trap
         myTraps.sort(TrapObject.TrapPriorityComparator);
         nextTrap = myTraps.get(myTraps.size() - 1);
@@ -205,9 +208,8 @@ public class Main extends AbstractScript {
             logInfo(String.format("%05d | %05d | %s | %13d",
                     trap.getEmptyTree().getX(), trap.getEmptyTree().getY(),
                     trap.statuses.get(trap.getState()), trap.getPriority()
-                    ));
+            ));
         }
-
     }
 
     private int getMSPerTile(Entity target) {
@@ -258,7 +260,7 @@ public class Main extends AbstractScript {
     private void getCloser(Entity entity) {
         int sleepTime = 0;
 
-        if (getLocalPlayer().distance(entity) < 3) {
+        if (getLocalPlayer().distance(entity) > 3) {
 
             // determine length of path in tiles
             LocalPath<Tile> path = getWalking().getAStarPathFinder().calculate(
@@ -281,7 +283,20 @@ public class Main extends AbstractScript {
             sleepUntil(
                     () -> getLocalPlayer().distance(finalMileStoneTile) < 3,
                     Calculations.random(sleepTime, sleepTime + 200));
+        } else {
+            log("entity is already close enough");
         }
+    }
+
+    private boolean customClick(Entity entity, String targetAction) {
+
+        Point point = entity.getCenterPoint();
+
+        getMouse().move(point);
+        sleep(Calculations.random(50, 100));
+        getMouse().click();
+
+        return getClient().getMenu().getDefaultAction().equals(targetAction);
     }
 
     private void setTrap() {
@@ -327,8 +342,10 @@ public class Main extends AbstractScript {
                 // sleep(Calculations.random(300, 600));
 
             }
-        } else {
+        } else if (nextTrap.getFullNet() == null) {
             getCloser(nextEntity);
+        } else {
+            getCloser(nextTrap.getFullNet());
         }
     }
 
@@ -341,25 +358,33 @@ public class Main extends AbstractScript {
 
         if (onScreen) {
 
-            if (nearestCheckableTrap.interact("Check")) {
+            int currentHunterXP = getSkills().getExperience(Skill.HUNTER);
+            if ((nearestCheckableTrap.interact("Check"))) {
 
-                // calculate a reasonable timeout
-                // TODO: this should be a separate function
-                int numTiles = getWalking().getAStarPathFinder().calculate(
-                        getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
-                int setTrapTime = 600;
-                int buffer = 50;
-                int sleepMinimum = (numTiles * getMSPerTile(nearestCheckableTrap)) + setTrapTime + buffer;
-                int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
+                while (true) {
+                    if (currentHunterXP < getSkills().getExperience(Skill.HUNTER)) {
+                        return;
+                    }
+                    sleep(Calculations.random(150, 300));
+                }
 
-                sleepUntil(() -> !nearestCheckableTrap.exists(), sleepTime);
-
-                // add human-ish reaction time
-                sleep(Calculations.random(150, 600));
+//                // calculate a reasonable timeout
+//                // TODO: this should be a separate function
+//                int numTiles = getWalking().getAStarPathFinder().calculate(
+//                        getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
+//                int setTrapTime = 600;
+//                int buffer = 50;
+//                int sleepMinimum = (numTiles * getMSPerTile(nearestCheckableTrap)) + setTrapTime + buffer;
+//                int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
+//
+//                sleepUntil(() -> !nearestCheckableTrap.exists(), sleepTime);
+//
+//                // add human-ish reaction time
+//                sleep(Calculations.random(150, 600));
 
             }
         } else {
-            getCloser(nearestCheckableTrap);
+            getCloser(nextTrap.getFullNet());
         }
     }
 
