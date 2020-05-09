@@ -25,7 +25,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.032,
+        version = 3.037,
         name = "Poacher"
 )
 
@@ -59,12 +59,6 @@ public class Main extends AbstractScript {
         // update state
         updateState();
         getNextTrap();
-
-        // if the camera is too low it gets hard to click on full nets
-        // this hack will stop the camera being too low
-        if (getCamera().getPitch() < 250) {
-            getCamera().rotateToPitch(Calculations.random(250, 383));
-        }
 
         // do stuff
         // first priority is ensuring we have enough space
@@ -195,6 +189,12 @@ public class Main extends AbstractScript {
                     }
                 }
             }
+
+            for (GroundItem item: trap.getItems()) {
+                if (!item.exists()) {
+                    trap.removeItem(item);
+                }
+            }
         }
     }
 
@@ -298,39 +298,19 @@ public class Main extends AbstractScript {
 
     }
 
-    private void getCloser(Entity entity) {
-        int sleepTime = 0;
+    private void getCloser(TrapObject trap) {
+
+        Entity entity = trap.getEmptyTree();
+        if (trap.getEmptyNet() != null) {
+            entity = trap.getEmptyNet();
+        }
 
         if (getLocalPlayer().distance(entity) > 3) {
 
-            // rotate camera first
-            getCamera().rotateToEntity(entity);
-            // if we can see it now, job done.
-            if (entity.isOnScreen()) {
-                return;
-            }
+            getWalking().walk(entity.getTile());
+            Entity finalEntity = entity;
+            sleepUntil(() -> getLocalPlayer().distance(finalEntity.getTile()) < 1, Calculations.random(1200));
 
-            // determine length of path in tiles
-            LocalPath<Tile> path = getWalking().getAStarPathFinder().calculate(
-                    getLocalPlayer().getTile(), entity.getTile());
-
-            // determine which tile can be clicked on that moves us furthest
-            Tile mileStoneTile = getLocalPlayer().getTile();
-            for (Tile t: path) {
-                if (getMap().isTileOnScreen(t)) {
-                    mileStoneTile = t;
-                }
-            }
-
-            // walk there
-            getWalking().walkOnScreen(mileStoneTile);
-
-            // wait until we're reasonably close to target
-            sleepTime = (3 * getMSPerTile(entity));
-            Tile finalMileStoneTile = mileStoneTile;
-            sleepUntil(
-                    () -> getLocalPlayer().distance(finalMileStoneTile) < 3,
-                    Calculations.random(sleepTime, sleepTime + 200));
         } else {
             log("entity is already close enough");
         }
@@ -390,10 +370,8 @@ public class Main extends AbstractScript {
                 // sleep(Calculations.random(300, 600));
 
             }
-        } else if (nextTrap.getFullNet() == null) {
-            getCloser(nextEntity);
         } else {
-            getCloser(nextTrap.getFullNet());
+            getCloser(nextTrap);
         }
     }
 
@@ -432,7 +410,7 @@ public class Main extends AbstractScript {
 
             }
         } else {
-            getCloser(nextTrap.getFullNet());
+            getCloser(nextTrap);
         }
     }
 
@@ -496,7 +474,7 @@ public class Main extends AbstractScript {
                 }
             }
         } else {
-            getCloser(nextItemToTake);
+            getCloser(nextTrap);
         }
     }
 
