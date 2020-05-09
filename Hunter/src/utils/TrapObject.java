@@ -6,6 +6,8 @@ import org.dreambot.api.wrappers.interactive.GameObject;
 import org.dreambot.api.wrappers.interactive.Player;
 import org.dreambot.api.wrappers.items.GroundItem;
 
+import static org.dreambot.api.methods.MethodProvider.log;
+
 public class TrapObject {
 
     // enums
@@ -14,6 +16,8 @@ public class TrapObject {
     public int IN_PROGRESS = 1;
     public int COMPLETED = 2;
     public int FAILED = 3;
+
+    public HashMap<Integer, String> statuses = new HashMap<Integer, String>();
 
     private GameObject emptyTree;
 
@@ -33,13 +37,31 @@ public class TrapObject {
     public void setUp(GameObject tree, Player player) {
         this.emptyTree = tree;
         this.distanceFromPlayer = player.distance(tree);
+
+        // initialise mapping for status names
+        this.statuses.put(NONE,        "uninitialised");
+        this.statuses.put(WAITING,     "      waiting");
+        this.statuses.put(IN_PROGRESS, "  in progress");
+        this.statuses.put(COMPLETED,   "    completed");
+        this.statuses.put(FAILED,      "       failed");
+
     }
 
     public void setState(int newState) {
 
         // keep a record of when state changed
         if (this.state != newState) {
-            this.stateChangedAt = System.currentTimeMillis();
+            // you can't go from in progress to waiting, but the empty tree
+            // model appears before the items do, which causes a 1 milisecond
+            // state change that rarely gets prioritised
+            if (!(this.state == IN_PROGRESS && newState == WAITING)) {
+                log(String.format("trap at %d, %d state %s -> %s",
+                        this.emptyTree.getX(), this.emptyTree.getY(),
+                        statuses.get(this.state), statuses.get(newState)
+                ));
+
+                this.stateChangedAt = System.currentTimeMillis();
+            }
         }
 
         // update priority based on state and state change
@@ -47,14 +69,14 @@ public class TrapObject {
             // this usually means we've just picked up a
             // collapsed trap or checked a successful one, so
             // resetting should take precedence
-            this.priority = 0;
+            this.priority = 999999999;
         } else if (newState == IN_PROGRESS) {
             // if the trap is currently set there's nothing to do anyway
-            this.priority = 999999999;
+            this.priority = 0;
         } else {
             // this should mean traps that have been waiting longer
             // get seen to first
-            this.priority = (int) (System.currentTimeMillis() - this.stateChangedAt) / 1000;
+            this.priority = (int) (System.currentTimeMillis() - this.stateChangedAt);
         }
 
         // update the actual state
@@ -64,6 +86,10 @@ public class TrapObject {
 
     public int getState() {
         return this.state;
+    }
+
+    public int getPriority() {
+        return this.priority;
     }
 
     public void setEmptyTree(GameObject object) {
