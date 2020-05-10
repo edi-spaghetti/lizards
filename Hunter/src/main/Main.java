@@ -25,7 +25,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.037,
+        version = 3.047,
         name = "Poacher"
 )
 
@@ -51,6 +51,8 @@ public class Main extends AbstractScript {
         initialHunterXP =  getSkills().getExperience(Skill.HUNTER);
         currentHunter = getSkills().getRealLevel(Skill.HUNTER);
         initialiseTraps();
+
+        getMouse().setAlwaysHop(true);
     }
 
     @Override
@@ -318,13 +320,15 @@ public class Main extends AbstractScript {
 
     private boolean customClick(Entity entity, String targetAction) {
 
-        Point point = entity.getCenterPoint();
-
+        Point point = entity.getClickablePoint();
         getMouse().move(point);
-        sleep(Calculations.random(50, 100));
-        getMouse().click();
+        sleep(Calculations.random(50, 60));
+        boolean clickable = getClient().getMenu().getDefaultAction().equals(targetAction);
 
-        return getClient().getMenu().getDefaultAction().equals(targetAction);
+        if (clickable) {
+            getMouse().click();
+        }
+        return clickable;
     }
 
     private void setTrap() {
@@ -336,7 +340,7 @@ public class Main extends AbstractScript {
         if (onScreen) {
 
             // set the actual trap
-            if (nextEntity.interact("Set-trap")) {
+            if (customClick(nextEntity, prey.trap.setActionName)) {
 
                 // wait until the empty net object has been spawned
                 GameObject emptyNet = null;
@@ -385,7 +389,7 @@ public class Main extends AbstractScript {
         if (onScreen) {
 
             int currentHunterXP = getSkills().getExperience(Skill.HUNTER);
-            if ((nearestCheckableTrap.interact("Check"))) {
+            if (customClick(nearestCheckableTrap, prey.trap.checkActionName)) {
 
                 while (true) {
                     if (currentHunterXP < getSkills().getExperience(Skill.HUNTER)) {
@@ -443,7 +447,7 @@ public class Main extends AbstractScript {
         if (onScreen) {
 
             long start = System.currentTimeMillis();
-            if (nextItemToTake.interact("Take")) {
+            if (customClick(nextItemToTake, "Take")) {
                 long end = System.currentTimeMillis();
 
                 // sometimes duration is more than sleepTime, in which case just make it 0
