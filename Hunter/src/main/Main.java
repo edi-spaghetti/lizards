@@ -25,7 +25,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.047,
+        version = 3.049,
         name = "Poacher"
 )
 
@@ -64,7 +64,9 @@ public class Main extends AbstractScript {
 
         // do stuff
         // first priority is ensuring we have enough space
-        if (getInventory().emptySlotCount() < 3 && nextTrap.getState() == nextTrap.COMPLETED) {
+        if (getInventory().emptySlotCount() < 3
+                && (nextTrap.getState() == nextTrap.COMPLETED
+                || nextTrap.getState() == nextTrap.FAILED)) {
              log("prioritising lizard release");
             releaseLizard();
         } else if (nextTrap.getState() == nextTrap.FAILED) {
@@ -391,26 +393,16 @@ public class Main extends AbstractScript {
             int currentHunterXP = getSkills().getExperience(Skill.HUNTER);
             if (customClick(nearestCheckableTrap, prey.trap.checkActionName)) {
 
-                while (true) {
-                    if (currentHunterXP < getSkills().getExperience(Skill.HUNTER)) {
-                        return;
-                    }
-                    sleep(Calculations.random(150, 300));
-                }
-
-//                // calculate a reasonable timeout
-//                // TODO: this should be a separate function
-//                int numTiles = getWalking().getAStarPathFinder().calculate(
-//                        getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
-//                int setTrapTime = 600;
-//                int buffer = 50;
-//                int sleepMinimum = (numTiles * getMSPerTile(nearestCheckableTrap)) + setTrapTime + buffer;
-//                int sleepTime = Calculations.random(sleepMinimum, sleepMinimum + 200);
-//
-//                sleepUntil(() -> !nearestCheckableTrap.exists(), sleepTime);
-//
-//                // add human-ish reaction time
-//                sleep(Calculations.random(150, 600));
+                // calculate a reasonable timeout
+                int numTiles = getWalking().getAStarPathFinder().calculate(
+                        getLocalPlayer().getTile(), nearestCheckableTrap.getTile()).size();
+                int setTrapTime = 600;
+                int buffer = 50;
+                int sleepMinimum = (numTiles * getMSPerTile(nearestCheckableTrap)) + setTrapTime + buffer;
+                sleepUntil(
+                        () -> currentHunterXP < getSkills().getExperience(Skill.HUNTER),
+                        Calculations.random(sleepMinimum, sleepMinimum + 200)
+                );
 
             }
         } else {
