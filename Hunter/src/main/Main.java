@@ -25,7 +25,7 @@ import java.util.List;
         author="RonMan",
         description="Hunter is a filler skill anyway",
         category = Category.HUNTING,
-        version = 3.049,
+        version = 3.050,
         name = "Poacher"
 )
 

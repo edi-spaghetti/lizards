@@ -17,6 +17,8 @@ public class TrapObject {
     public int COMPLETED = 2;
     public int FAILED = 3;
 
+    public int MAX_PRIORITY = 999999999;
+
     public HashMap<Integer, String> statuses = new HashMap<Integer, String>();
 
     private GameObject emptyTree;
@@ -75,7 +77,12 @@ public class TrapObject {
                 // this usually means we've just picked up a
                 // collapsed trap or checked a successful one, so
                 // resetting should take precedence
-                this.priority = 999999999;
+                this.priority = MAX_PRIORITY;
+        } else if (this.priority == MAX_PRIORITY && newState == WAITING) {
+            // if a newly waiting trap is misclicked, it misses it's
+            // opportunity for max priority, and gets skipped
+            // this should give it a re-do
+            this.priority = MAX_PRIORITY;
         } else if (newState == IN_PROGRESS) {
             // if the trap is currently set there's nothing to do anyway
             this.priority = 0;
