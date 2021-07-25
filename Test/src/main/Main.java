@@ -6,9 +6,11 @@ import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
 import org.dreambot.api.wrappers.interactive.Entity;
 import org.dreambot.api.wrappers.interactive.GameObject;
+import org.dreambot.api.wrappers.items.GroundItem;
 
 import java.awt.*;
 import java.awt.geom.Area;
+import java.util.ArrayList;
 
 @ScriptManifest(
         author="RonMan",
@@ -21,22 +23,118 @@ import java.awt.geom.Area;
 public class Main extends AbstractScript {
 
     int yaw = 2000;
+    ArrayList<ArrayList<Integer>> coords = new ArrayList<>();
+    ArrayList<ArrayList<Entity>> entities = new ArrayList<>();
+    ArrayList<Integer> entityIDs = new ArrayList<>();
+    int emptyTreeID = 8990;
+    int bentTreeID = 8989;
+    int emptyNetID = 8992;
+    int fullNetID = 8986;
+    int ropeID = 303;
+    int netID = 954;
 
     @Override
     public void onStart() {
         super.onStart();
         log("Starting");
-        getCamera().rotateToYaw(2400);
+        setUpCoords();
+        setUpObjectIDs();
+        setUpEntities();
     }
 
     @Override
     public int onLoop() {
         // log("Looping");
 
-        GameObject o = getGameObjects().closest(f -> f.getIndex() == 153524537);
-        rotateToTarget(o);
+        long start = System.currentTimeMillis();
+        updateEntities();
+        long duration = start - System.currentTimeMillis();
+
+        log(String.format("getGameObjects.closest() took %d ms", duration));
 
         return Calculations.random(150, 300);
+    }
+
+    private void updateEntities() {
+        GameObject object;
+        GroundItem item;
+
+        for (int i = 0; i < coords.size(); i++) {
+            for (int j = 0; j < entityIDs.size(); j++) {
+                int id = entityIDs.get(j);
+                int finalI = i;
+                if (id != ropeID && id != netID) {
+                    object = getGameObjects().closest(
+                            o -> (o.getX() - coords.get(finalI).get(0)) < 1.1
+                                    && (o.getY() - coords.get(finalI).get(1) < 1.1)
+                                    && o.getID() == id);
+                    entities.get(i).set(j, object);
+                } else {
+                    item = getGroundItems().closest(
+                            o -> (o.getX() - coords.get(finalI).get(0)) < 1.1
+                                    && (o.getY() - coords.get(finalI).get(1) < 1.1)
+                                    && o.getID() == id);
+                    entities.get(i).set(j, item);
+                }
+            }
+        }
+    }
+
+    private void setUpEntities() {
+
+        GameObject object;
+        GroundItem item;
+
+        for (ArrayList<Integer> xy : coords) {
+            ArrayList<Entity> ents = new ArrayList<>();
+            for (Integer id: entityIDs) {
+                if (id != ropeID && id != netID) {
+                    object = getGameObjects().closest(
+                            o -> (o.getX() - xy.get(0)) < 1.1
+                                    && (o.getY() - xy.get(1) < 1.1)
+                                    && o.getID() == id);
+                    ents.add(object);
+                } else {
+                    item = getGroundItems().closest(
+                            o -> (o.getX() - xy.get(0)) < 1.1
+                                    && (o.getY() - xy.get(1) < 1.1)
+                                    && o.getID() == id);
+                    ents.add(item);
+
+                }
+            }
+            entities.add(ents);
+        }
+    }
+
+    private void setUpObjectIDs() {
+        entityIDs.add(emptyTreeID);
+        entityIDs.add(emptyNetID);
+        entityIDs.add(fullNetID);
+        entityIDs.add(ropeID);
+        entityIDs.add(netID);
+    }
+
+    private void setUpCoords() {
+        ArrayList<Integer> c1 = new ArrayList<Integer>();
+        c1.add(2451);
+        c1.add(3225);
+        coords.add(c1);
+
+        ArrayList<Integer> c2 = new ArrayList<Integer>();
+        c2.add(2447);
+        c2.add(3225);
+        coords.add(c2);
+
+        ArrayList<Integer> c3 = new ArrayList<Integer>();
+        c3.add(2449);
+        c3.add(3228);
+        coords.add(c3);
+
+        ArrayList<Integer> c4 = new ArrayList<Integer>();
+        c4.add(2453);
+        c4.add(3219);
+        coords.add(c4);
     }
 
     private int yawToDegrees(int yaw) {
